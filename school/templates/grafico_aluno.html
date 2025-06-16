@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Desempenho de {{ aluno.complet_name_aluno }}</title>
+</head>
+<body>
+    <!-- Título principal da página -->
+    <h1>Desempenho de {{ aluno.complet_name_aluno }}</h1>
+    <!-- Exibe alerta se o aluno tiver nota(s) abaixo de 70 -->
+    {% if tem_alerta %}
+        <div style="color: red; font-weight: bold; margin-bottom: 10px;">
+            ⚠️ Atenção: Este aluno possui nota(s) abaixo de 70!
+        </div>
+    {% endif %}
+    <!-- Exibe o gráfico de notas do aluno -->
+    <img src="data:image/png;base64,{{ grafico }}" alt="Gráfico de Notas">
+    <h2>Notas</h2>
+    <ul>
+        <!-- Lista as notas do aluno por matéria -->
+        {% for nota in notas %}
+        <li>{{ nota.materia.name_subject }}: {{ nota.nota }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
