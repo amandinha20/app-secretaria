@@ -18,12 +18,12 @@ class Aluno(models.Model):
         ("1A", "1° ano A"),
         ("1B", "1° ano B"),
         ("1C", "1° ano C"),
-        ("2A", "2° ano CN"),
-        ("2B", "2° ano DS"),
-        ("2C", "2° ano JOGOS"),
-        ("3A", "3° ano CN"),
-        ("3B", "3° ano DS"),
-        ("3C", "3° ano JOGOS"),
+        ("2CN", "2° ano CN"),
+        ("2DS", "2° ano DS"),
+        ("2JG", "2° ano JOGOS"),
+        ("3CN", "3° ano CN"),
+        ("3DS", "3° ano DS"),
+        ("3JG", "3° ano JOGOS"),
     )
 
     # Informações do aluno, como telefone, matrícula, email, CPF e data de nascimento
@@ -35,7 +35,8 @@ class Aluno(models.Model):
     email_aluno = models.EmailField(max_length=100, verbose_name= "Email do aluno")
     cpf_aluno = models.CharField(max_length=11, unique=True, validators= [validar_cpf], verbose_name= "CPF do aluno")
     birthday_aluno = models.DateField()
-    class_choices = models.CharField(max_length=2, choices=ANO_CHOICES, blank=True, null=True)
+    # Alterando para ForeignKey para Turmas
+    class_choices = models.ForeignKey('Turmas', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Turma do aluno")
 
     def __str__(self):
         # Retorna o nome completo do aluno para exibição
@@ -65,6 +66,7 @@ class Turmas (models.Model):
     ]
     # Opções de itinerário formativo
     ITINERARIO_CHOICES =[
+        ('N', 'Nenhum'),
         ('CN', 'Ciências da Natureza'),
         ('DS', 'Desenvolvimento de Sistemas'),
         ('DJ', 'DEsenvolvimento de Jogos'),
@@ -90,7 +92,7 @@ class Materia(models.Model):
     MATERIA_CHOICES = (
         ("DS", "Desenvolvimento de Sistemas"),
         ("CN", "Ciencias da Natureza"),
-        ("DS", "Desenvolvimento de Jogos"),
+        ("DJ", "Desenvolvimento de Jogos"),
         ("MAT", "Matematica"),
         ("CH", "Ciencias Humanas"),
         ("LG", "Linguagens")    

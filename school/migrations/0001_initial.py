@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('email_aluno', models.EmailField(max_length=100, verbose_name='Email do aluno')),
                 ('cpf_aluno', models.CharField(max_length=11, unique=True, validators=[school.validators.validar_cpf], verbose_name='CPF do aluno')),
                 ('birthday_aluno', models.DateField()),
-                ('class_choices', models.CharField(blank=True, choices=[('1A', '1° ano A'), ('1B', '1° ano B'), ('1C', '1° ano C'), ('2A', '2° ano CN'), ('2B', '2° ano DS'), ('2C', '2° ano JOGOS'), ('3A', '3° ano CN'), ('3B', '3° ano DS'), ('3C', '3° ano JOGOS')], max_length=2, null=True)),
+                ('class_choices', models.CharField(blank=True, choices=[('1A', '1° ano A'), ('1B', '1° ano B'), ('1C', '1° ano C'), ('2CN', '2° ano CN'), ('2DS', '2° ano DS'), ('2JG', '2° ano JOGOS'), ('3CN', '3° ano CN'), ('3DS', '3° ano DS'), ('3JG', '3° ano JOGOS')], max_length=2, null=True)),
             ],
             options={
                 'verbose_name': 'Aluno',
@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
             name='Materia',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name_subject', models.CharField(choices=[('DS', 'Desenvolvimento de Sistemas'), ('CN', 'Ciencias da Natureza'), ('DS', 'Desenvolvimento de Jogos'), ('MAT', 'Matematica'), ('CH', 'Ciencias Humanas'), ('LG', 'Linguagens')], max_length=50, verbose_name='Selecione a Materia desejada')),
+                ('name_subject', models.CharField(choices=[('DS', 'Desenvolvimento de Sistemas'), ('CN', 'Ciencias da Natureza'), ('DJ', 'Desenvolvimento de Jogos'), ('MAT', 'Matematica'), ('CH', 'Ciencias Humanas'), ('LG', 'Linguagens')], max_length=50, verbose_name='Selecione a Materia desejada')),
             ],
             options={
                 'verbose_name': 'Disciplina',
@@ -57,7 +57,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('class_name', models.CharField(choices=[('1°', '1° ano'), ('2°', '2° ano'), ('3°', '3° ano')], max_length=50, verbose_name='Turma ')),
-                ('itinerary_name', models.CharField(choices=[('CN', 'Ciências da Natureza'), ('DS', 'Desenvolvimento de Sistemas'), ('DJ', 'DEsenvolvimento de Jogos')], max_length=50, verbose_name='Itinerário a qual essa turma pertence')),
+                ('itinerary_name', models.CharField(choices=[('N', 'Nenhum'), ('CN', 'Ciências da Natureza'), ('DS', 'Desenvolvimento de Sistemas'), ('DJ', 'DEsenvolvimento de Jogos')], max_length=50, verbose_name='Itinerário a qual essa turma pertence')),
                 ('godfather_prof', models.CharField(max_length=50, verbose_name='Professor padrinho da turma')),
                 ('class_representante', models.CharField(max_length=50, verbose_name='Representante da turma')),
             ],
