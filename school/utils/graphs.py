@@ -2,12 +2,6 @@ import matplotlib.pyplot as plt
 import io
 import base64
 
-"""
-Funções utilitárias:
-- utils/graphs.py: Centraliza a lógica de geração de gráficos (matplotlib) para desempenho de alunos, turmas e disciplinas.
-- school/validators.py: Centraliza funções de validação de CPF, telefone, etc, usadas nos modelos e formulários.
-"""
-
 def gerar_grafico_barras(labels, values, cores, titulo, ylabel, ylim=(0, 100)):
     # Cria uma nova figura do matplotlib com tamanho 8x4
     plt.figure(figsize=(8,4))

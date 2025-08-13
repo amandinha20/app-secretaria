@@ -1,6 +1,3 @@
-# Script para rodar no shell do Django e atualizar os alunos para o novo modelo de Turmas
-# Salve este arquivo e execute no shell do Django com: exec(open('school/scripts/atualizar_turmas_alunos.py').read())
-
 from school.models import Turmas, Aluno
 
 def get_or_create_turma(codigo):

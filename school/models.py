@@ -46,9 +46,63 @@ class Aluno(models.Model):
         # Calcula a média das notas do aluno usando agregação
         return self.notas.aggregate(media=models.Avg('nota'))['media']
 
+    def total_faltas(self):
+        return self.faltas.filter(status='F').count()
+
     class Meta:
         verbose_name = "Aluno"
         verbose_name_plural = "Aluno"
+
+# Modelo para registrar faltas/presenças
+from django.conf import settings
+# Modelo para registrar faltas/presenças
+class Falta(models.Model):
+    STATUS_CHOICES = (
+        ('P', 'Presente'),
+        ('F', 'Faltou'),
+    )
+    data = models.DateField(verbose_name="Data da chamada")
+    turma = models.ForeignKey('school.Turmas', on_delete=models.CASCADE, related_name="faltas")
+    aluno = models.ForeignKey('school.Aluno', on_delete=models.CASCADE, related_name="faltas")
+    status = models.CharField(max_length=1, choices=STATUS_CHOICES, verbose_name="Presença/Falta")
+
+    class Meta:
+        unique_together = ('data', 'turma', 'aluno')
+        verbose_name = "Falta"
+        verbose_name_plural = "Faltas"
+
+    def __str__(self):
+        return f"{self.data} - {self.turma} - {self.aluno}: {self.get_status_display()}"
+
+class Advertencia(models.Model):
+    aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name="advertencias")
+    data = models.DateField()
+    motivo = models.TextField(verbose_name="Motivo da advertência")
+
+
+    def advertencia_pdf_link(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        if obj.id:
+            url = reverse('gerar_advertencia_pdf', args=[obj.id])
+            return format_html(f'<a class="button" href="{url}" target="_blank">📄 Gerar Advertência</a>')
+        return "-"
+    advertencia_pdf_link.short_description = "Advertência em PDF"
+
+class DocumentoAdvertencia(models.Model):
+
+    advertencia = models.ForeignKey('Advertencia', on_delete=models.CASCADE)
+    documentoadvertencia_assinado = models.BooleanField(default=False, verbose_name="Documento de Advertência Assinado")
+    documento_assinado = models.FileField(upload_to='documentos_advertencia/', blank=True, null=True, verbose_name="Arquivo do Documento de Advertência Assinado")
+
+    def __str__(self):
+        # Retorna uma string identificando o contrato pelo nome do aluno
+        return f"Documento de {self.advertencia.motivo}"
+
+    class Meta:
+        verbose_name = "Documento de Advertência"
+        verbose_name_plural = "Documento de Advertência"
+
 
 class AlunoNotas(Aluno):
     class Meta:
@@ -165,5 +219,6 @@ class Nota(models.Model):
     class Meta:
         verbose_name = "Nota"
         verbose_name_plural = "Nota"
+
 
 
