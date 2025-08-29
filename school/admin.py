@@ -1,5 +1,7 @@
 from django.contrib import admin
 from .models import Aluno, Responsavel, Professor, Turmas, Materia, Contrato, Nota, AlunoNotas, Falta, Advertencia, DocumentoAdvertencia
+from .admin_attendance import AttendanceDateAdmin
+from datetime import datetime
 # Admin para DocumentoAdvertencia
 class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
     list_display = ('advertencia', 'documentoadvertencia_assinado', 'documento_assinado')
@@ -29,7 +31,7 @@ class FaltaAdmin(admin.ModelAdmin):
             kwargs["queryset"] = Aluno.objects.filter(class_choices=turma_id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-admin.site.register(Falta, FaltaAdmin)
+# admin.site.register(Falta, FaltaAdmin)  # Removido para evitar conflito com AttendanceDateAdmin
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.utils.html import format_html
@@ -226,19 +228,36 @@ class TurmasAdmin(admin.ModelAdmin):
 
     def fazer_chamada(self, request, turma_id):
         from .models import Falta, Aluno
-        turma = Turmas.objects.get(id=turma_id)
-        alunos = Aluno.objects.filter(class_choices=turma)
+        from django.shortcuts import get_object_or_404
+        from django.contrib import messages
+        
+        turma = get_object_or_404(Turmas, id=turma_id)
+        alunos = Aluno.objects.filter(class_choices=turma).order_by('complet_name_aluno')
+        
         if request.method == 'POST':
             data = request.POST.get('data')
+            if not data:
+                messages.error(request, 'Por favor, selecione uma data válida.')
+                return redirect(request.path_info)
+                
+            try:
+                data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Formato de data inválido.')
+                return redirect(request.path_info)
+                
             for aluno in alunos:
                 status = request.POST.get(f'status_{aluno.id}')
                 if status in ['P', 'F']:
                     Falta.objects.update_or_create(
-                        data=data, turma=turma, aluno=aluno,
+                        data=data_obj,
+                        turma=turma,
+                        aluno=aluno,
                         defaults={'status': status}
                     )
-            self.message_user(request, 'Chamada registrada com sucesso!')
-            return redirect(f'../../')
+            messages.success(request, 'Chamada registrada com sucesso!')
+            return redirect('admin:school_turmas_changelist')
+            
         return render(request, 'admin/fazer_chamada.html', {
             'title': f'Chamada da turma {turma.class_name}',
             'turma': turma,
@@ -413,3 +432,6 @@ admin.site.register(Professor, ProfessorAdmin)
 admin.site.register(Turmas, TurmasAdmin)
 admin.site.register(Materia, MateriaAdmin)
 admin.site.register(Contrato, ContratoAdmin)
+
+# Registra o AttendanceDateAdmin para o modelo Falta
+admin.site.register(Falta, AttendanceDateAdmin)
