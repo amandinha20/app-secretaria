@@ -21,6 +21,18 @@ class FaltaAdmin(admin.ModelAdmin):
     list_filter = ('data', 'turma', 'status')
     search_fields = ('aluno__complet_name_aluno', 'turma__class_name')
     form = FaltaForm
+    actions = ['ver_datas_chamadas']
+
+    # Adiciona filtro avançado para facilitar edição por data e turma
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        data = request.GET.get('data')
+        turma = request.GET.get('turma')
+        if data:
+            qs = qs.filter(data=data)
+        if turma:
+            qs = qs.filter(turma_id=turma)
+        return qs
 
     # Exibe só alunos da turma selecionada
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -28,6 +40,13 @@ class FaltaAdmin(admin.ModelAdmin):
             turma_id = request.GET.get('turma')
             kwargs["queryset"] = Aluno.objects.filter(class_choices=turma_id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    actions = ['ver_datas_chamadas']
+
+    def ver_datas_chamadas(self, request, queryset):
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect('/faltas/')
+    ver_datas_chamadas.short_description = 'Visualizar datas de chamadas salvas'
 
 admin.site.register(Falta, FaltaAdmin)
 from django.utils.safestring import mark_safe

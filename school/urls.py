@@ -9,7 +9,9 @@ from django.urls import path
 from .views import (
     gerar_contrato_pdf, boletim_aluno, boletim_aluno_pdf, grafico_desempenho_aluno,
     relatorio_turma, grafico_disciplina, desempenho_index,
-    desempenho_aluno_select, desempenho_turma_select, desempenho_disciplina_select
+    desempenho_aluno_select, desempenho_turma_select, desempenho_disciplina_select,
+    faltas_datas, faltas_turmas_por_data, faltas_chamada_por_data_turma,
+    editar_chamada
 )
 from .views_advertencia import gerar_advertencia_pdf
 
@@ -29,5 +31,10 @@ urlpatterns = [
     path('desempenho/aluno/', desempenho_aluno_select, name='desempenho_aluno_select'),
     path('desempenho/turma/', desempenho_turma_select, name='desempenho_turma_select'),
     path('desempenho/disciplina/', desempenho_disciplina_select, name='desempenho_disciplina_select'),
+    # Rotas para o fluxo de faltas
+    path('faltas/', faltas_datas, name='faltas_datas'),
+    path('faltas/<data>/', faltas_turmas_por_data, name='faltas_turmas_por_data'),
+    path('faltas/<data>/<int:turma_id>/', faltas_chamada_por_data_turma, name='faltas_chamada_por_data_turma'),
+    path('faltas/<data>/<int:turma_id>/editar/', editar_chamada, name='editar_chamada'),
     path('advertencia/<int:advertencia_id>/pdf/', gerar_advertencia_pdf, name='gerar_advertencia_pdf'),
 ]

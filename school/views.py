@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
@@ -7,8 +7,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import base64
-from django.db.models import Avg
-from .models import Aluno, Nota, Materia, Turmas  
+from django.db.models import Avg, Count
+from .models import Aluno, Nota, Materia, Turmas, Falta  
 from .utils.graphs import gerar_grafico_barras
 
 def gerar_contrato_pdf(request, aluno_id):
@@ -170,3 +170,8 @@ def desempenho_disciplina_select(request):
     materias = Materia.objects.all()
     # Renderiza a página de seleção de disciplina
     return render(request, 'desempenho_disciplina_select.html', {'materias': materias})
+
+def faltas_datas(request):
+    datas = Falta.objects.values_list('data', flat=True).distinct().order_by('-data')
+    return render(request, 'faltas_datas.html', {'datas': datas})
+
