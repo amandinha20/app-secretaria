@@ -46,30 +46,42 @@ def gerar_contrato_pdf(request, aluno_id):
     response['Content-Disposition'] = f'inline; filename="contrato_{aluno.complet_name_aluno}.pdf"'
     return response
 
+
 def boletim_aluno(request, aluno_id):
-    # Busca o aluno pelo ID
+    from .models import Nota
     aluno = get_object_or_404(Aluno, id=aluno_id)
-    # Busca as notas do aluno, otimizando com select_related para evitar múltiplas queries
+    BIMESTRE_CHOICES = [
+        (1, '1º Bimestre'),
+        (2, '2º Bimestre'),
+        (3, '3º Bimestre'),
+        (4, '4º Bimestre'),
+    ]
+    bimestre = request.GET.get('bimestre')
     notas = Nota.objects.filter(aluno=aluno).select_related('materia')
-    # Verifica se existe alguma nota abaixo de 70 para alerta
+    if bimestre:
+        notas = notas.filter(bimestre=bimestre)
+        bimestre = int(bimestre)
+    else:
+        bimestre = ''
     tem_alerta = any(nota.nota < 70 for nota in notas)
-    # Renderiza o boletim do aluno com as notas e alerta
-    return render(request, 'boletim.html', {'aluno': aluno, 'notas': notas, 'tem_alerta': tem_alerta})
+    return render(request, 'boletim_select_bimestre.html', {
+        'aluno': aluno,
+        'notas': notas,
+        'tem_alerta': tem_alerta,
+        'bimestre': bimestre,
+        'bimestre_choices': BIMESTRE_CHOICES,
+    })
 
 def boletim_aluno_pdf(request, aluno_id):
-    # Busca o aluno pelo ID
     aluno = get_object_or_404(Aluno, id=aluno_id)
-    # Busca as notas do aluno
+    bimestre = request.GET.get('bimestre')
     notas = Nota.objects.filter(aluno=aluno).select_related('materia')
-    # Monta o contexto para o template
+    if bimestre:
+        notas = notas.filter(bimestre=bimestre)
     context = {'aluno': aluno, 'notas': notas}
-    # Renderiza o HTML do boletim
     html_string = render_to_string('boletim.html', context)
-    # Gera o PDF do boletim (sem recursos externos)
     pdf = HTML(string=html_string, base_url=None).write_pdf(stylesheets=None)
-    # Cria a resposta HTTP com o PDF gerado
     response = HttpResponse(pdf, content_type='application/pdf')
-    # Define o nome do arquivo PDF no cabeçalho da resposta
     response['Content-Disposition'] = f'inline; filename="boletim_{aluno.complet_name_aluno}.pdf"'
     return response
 

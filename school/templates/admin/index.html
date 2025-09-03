@@ -36,17 +36,5 @@
         <p>{% trans "You don't have permission to edit anything." %}</p>
     {% endif %}
     
-    <!-- Custom link for attendance by date -->
-    <div class="app-school module">
-        <table>
-            <caption>
-                <a href="{% url 'admin:attendance_by_date' %}" class="section">Chamadas Realizadas</a>
-            </caption>
-            <tr>
-                <th scope="row"><a href="{% url 'admin:attendance_by_date' %}">Visualizar Chamadas por Data</a></th>
-                <td><a href="{% url 'admin:attendance_by_date' %}" class="changelink">Ver</a></td>
-            </tr>
-        </table>
-    </div>
 </div>
 {% endblock %}
