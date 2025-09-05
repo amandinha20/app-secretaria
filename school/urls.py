@@ -5,6 +5,7 @@ Arquivo de rotas do app school.
 """
 
 from django.urls import path
+from . import views
 # Importa as views que serão usadas nas rotas
 from .views import (
     gerar_contrato_pdf, boletim_aluno, boletim_aluno_pdf, grafico_desempenho_aluno,
@@ -16,6 +17,7 @@ from .views_advertencia import gerar_advertencia_pdf
 # Lista de padrões de URL do app
 urlpatterns = [
     # Rotas para gerar e exibir o contrato e o boletim em PDF de um aluno
+    path('relatorio-faltas/<int:turma_id>/', views.relatorio_faltas_pdf, name='relatorio_faltas_pdf'),
     path('gerar-contrato/<int:aluno_id>/', gerar_contrato_pdf, name='gerar_contrato_pdf'),
     path('boletim/<int:aluno_id>/', boletim_aluno, name='boletim_aluno'),
     path('boletim/<int:aluno_id>/pdf/', boletim_aluno_pdf, name='boletim_aluno_pdf'),

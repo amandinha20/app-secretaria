@@ -1,5 +1,6 @@
 from django.db import models
 from .validators import validar_telefone, validar_cpf, validar_cpf_model
+from django.contrib.auth.models import User
 
 # Create your models here.
 class Responsavel(models.Model):
@@ -56,15 +57,18 @@ class Aluno(models.Model):
 # Modelo para registrar faltas/presenças
 from django.conf import settings
 # Modelo para registrar faltas/presenças
+
 class Falta(models.Model):
     STATUS_CHOICES = (
         ('P', 'Presente'),
         ('F', 'Faltou'),
     )
     data = models.DateField(verbose_name="Data da chamada")
-    turma = models.ForeignKey('school.Turmas', on_delete=models.CASCADE, related_name="faltas")
-    aluno = models.ForeignKey('school.Aluno', on_delete=models.CASCADE, related_name="faltas")
-    status = models.CharField(max_length=1, choices=STATUS_CHOICES, verbose_name="Presença/Falta")
+    turma = models.ForeignKey('Turmas', on_delete=models.CASCADE, related_name="faltas")
+    aluno = models.ForeignKey('Aluno', on_delete=models.CASCADE, related_name="faltas")
+    professor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=False, verbose_name="Professor responsável", limit_choices_to={'is_staff': True})
+    status = models.CharField(max_length=1, choices=STATUS_CHOICES, verbose_name="Presença/Falta", default='P')
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observação sobre a falta")
 
     class Meta:
         unique_together = ('data', 'turma', 'aluno')
@@ -73,7 +77,7 @@ class Falta(models.Model):
 
     def __str__(self):
         return f"{self.data} - {self.turma} - {self.aluno}: {self.get_status_display()}"
-
+    
 class Advertencia(models.Model):
     aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name="advertencias")
     data = models.DateField()

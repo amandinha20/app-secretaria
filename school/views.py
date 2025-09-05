@@ -10,6 +10,43 @@ import base64
 from django.db.models import Avg
 from .models import Aluno, Nota, Materia, Turmas  
 from .utils.graphs import gerar_grafico_barras
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from django.http import FileResponse
+from .models import Falta
+
+def relatorio_faltas_pdf(request, turma_id):
+    turma = Turmas.objects.get(id=turma_id)
+    faltas = Falta.objects.filter(turma=turma, status='F')
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
+
+    data = [['Data', 'Aluno', 'Professor', 'Observação']]
+    for falta in faltas:
+        data.append([falta.data, falta.aluno.complet_name_aluno, falta.professor.username if falta.professor else '', falta.observacao or ''])
+
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+
+    buffer.seek(0)
+    return FileResponse(buffer, as_attachment=True, filename=f'relatorio_faltas_{turma.class_name}.pdf')
 
 def gerar_contrato_pdf(request, aluno_id):
     # Busca o aluno pelo ID ou retorna 404 se não existir
@@ -140,6 +177,22 @@ def relatorio_turma(request, turma_id):
         'relatorio': relatorio,
         'grafico': grafico,
     })
+def relatorio_faltas_excedidas(request):
+    alunos_excedentes = []
+    turmas = Turmas.objects.all()
+    for turma in turmas:
+        alunos = Aluno.objects.filter(class_choices=turma)
+        total_aulas = Falta.objects.filter(turma=turma).values('data').distinct().count()
+        for aluno in alunos:
+            faltas = Falta.objects.filter(aluno=aluno, turma=turma, status='F').count()
+            if total_aulas > 0 and faltas / total_aulas > 0.25:
+                alunos_excedentes.append({
+                    'aluno': aluno.complet_name_aluno,
+                    'turma': turma,
+                    'faltas': faltas,
+                    'percentual': round(faltas / total_aulas * 100, 2)
+                })
+    return render(request, 'relatorio_faltas.html', {'alunos_excedentes': alunos_excedentes})
 
 def grafico_disciplina(request, materia_id):
     # Busca a matéria pelo ID

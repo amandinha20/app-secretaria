@@ -2,6 +2,12 @@ from django.contrib import admin
 from .models import Aluno, Responsavel, Professor, Turmas, Materia, Contrato, Nota, AlunoNotas, Falta, Advertencia, DocumentoAdvertencia
 from .admin_attendance import AttendanceDateAdmin
 from datetime import datetime
+from django.contrib import admin
+from django.http import HttpResponse
+from django.urls import path
+from django.utils import timezone
+import csv
+ # Removido import de AttendanceDate, modelo não existe
 # Admin para DocumentoAdvertencia
 class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
     list_display = ('advertencia', 'documentoadvertencia_assinado', 'documento_assinado')
@@ -9,17 +15,80 @@ class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
 
 admin.site.register(DocumentoAdvertencia, DocumentoAdvertenciaAdmin)
 # Admin para o modelo Falta (chamada)
-from django import forms
-class FaltaForm(forms.ModelForm):
-    class Meta:
-        model = Falta
-        fields = ['data', 'turma', 'aluno', 'status']
-        widgets = {
-            'data': forms.SelectDateWidget(),
-        }
 
 
 class FaltaAdmin(admin.ModelAdmin):
+    list_display = ('data', 'turma', 'aluno', 'professor', 'status')
+    list_filter = ('data', 'turma', 'status', 'professor')
+    search_fields = ('aluno__complet_name_aluno', 'turma__class_name', 'professor__username')
+    # Remova ou defina FaltaForm se necessário
+    # form = FaltaForm  # Comente ou remova se não tiver o formulário
+    actions = ['gerar_relatorio_faltas']
+
+    def gerar_relatorio_faltas(self, request, queryset):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="relatorio_faltas_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Data', 'Turma', 'Aluno', 'Professor', 'Status', 'Observação'])
+        
+        for falta in queryset:
+            writer.writerow([
+                falta.data,
+                falta.turma,
+                falta.aluno.complet_name_aluno,
+                falta.professor.username if falta.professor else '',
+                falta.get_status_display(),
+                falta.observacao or ''
+            ])
+        
+        return response
+
+    gerar_relatorio_faltas.short_description = "Gerar relatório de faltas em CSV"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:turma_id>/chamada/', self.admin_site.admin_view(self.fazer_chamada), name='fazer_chamada'),
+        ]
+        return custom_urls + urls
+
+    def fazer_chamada(self, request, turma_id):
+        turma = get_object_or_404(Turmas, id=turma_id)
+        alunos = Aluno.objects.filter(class_choices=turma).order_by('complet_name_aluno')
+
+        if request.method == 'POST':
+            data = request.POST.get('data')
+            if not data:
+                messages.error(request, 'Por favor, selecione uma data válida.')
+                return redirect(request.path_info)
+            
+            try:
+                data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Formato de data inválido.')
+                return redirect(request.path_info)
+            
+            for aluno in alunos:
+                status = request.POST.get(f'status_{aluno.id}')
+                if status in ['P', 'F']:
+                    Falta.objects.update_or_create(
+                        data=data_obj,
+                        turma=turma,
+                        aluno=aluno,
+                        defaults={'status': status, 'professor': request.user if request.user.is_staff else None}
+                    )
+            messages.success(request, 'Chamada registrada com sucesso!')
+            return redirect('admin:school_turmas_changelist')
+        
+        return render(request, 'admin/fazer_chamada.html', {
+            'title': f'Chamada da turma {turma.class_name}',
+            'turma': turma,
+            'alunos': alunos,
+            'data_atual': timezone.now().date().strftime('%Y-%m-%d'),
+        })
+
+    # ...existing code...
     list_display = ('data', 'turma', 'aluno', 'status', 'chamada_link')
     list_filter = ('data', 'turma', 'status')
     search_fields = ('aluno__complet_name_aluno', 'turma__class_name')
@@ -281,6 +350,15 @@ class TurmasAdmin(admin.ModelAdmin):
         return "-"
     relatorio_link.short_description = "Relatório"
 
+    def relatorio_link(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        if obj.id:
+            url = reverse('relatorio_faltas_pdf', args=[obj.id])
+            return format_html(f'<a href="{url}" target="_blank">📊 Relatório</a>')
+        return "-"
+    relatorio_link.short_description = "Relatório"
+
 # Admin para o modelo Materia
 class MateriaAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de matérias
@@ -456,6 +534,9 @@ admin.site.register(Turmas, TurmasAdmin)
 admin.site.register(Materia, MateriaAdmin)
 admin.site.register(Contrato, ContratoAdmin)
 
+# Registra o AttendanceDateAdmin para o modelo Falta
+    # ...existing code...
+ # Removido registro de AttendanceDate, modelo não existe
 # Registra o AttendanceDateAdmin para o modelo Falta (visualização por data)
 from django.urls import path
 from django.shortcuts import render, redirect
