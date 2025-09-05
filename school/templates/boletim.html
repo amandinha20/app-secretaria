@@ -22,13 +22,16 @@
             ⚠️ Atenção: Este aluno possui nota(s) abaixo de 70!
         </div>
     {% endif %}
-    <!-- Tabela com as notas do aluno -->
+    {% if bimestre %}
+    <div style="margin-bottom: 15px; font-weight: bold; text-align: center;">
+        Faltas neste bimestre: {{ faltas_bimestre }}
+    </div>
+    {% endif %}
     <table>
         <tr>
             <th>Matéria</th>
             <th>Nota</th>
             <th>Observação</th>
-            <th>Data de Lançamento</th>
         </tr>
         <!-- Para cada nota do aluno, exibe uma linha na tabela -->
         {% for nota in notas %}
@@ -36,12 +39,11 @@
             <td>{{ nota.materia.name_subject }}</td>
             <td>{{ nota.nota }}</td>
             <td>{{ nota.observacao }}</td>
-            <td>{{ nota.data_lancamento }}</td>
         </tr>
         {% empty %}
         <!-- Caso não haja notas lançadas, exibe mensagem -->
         <tr>
-            <td colspan="4">Nenhuma nota lançada.</td>
+            <td colspan="3">Nenhuma nota lançada.</td>
         </tr>
         {% endfor %}
     </table>

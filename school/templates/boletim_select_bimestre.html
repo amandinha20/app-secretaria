@@ -38,23 +38,26 @@
             ⚠️ Atenção: Este aluno possui nota(s) abaixo de 70!
         </div>
     {% endif %}
+    <div style="margin-bottom: 15px; font-weight: bold; text-align: center;">
+        {% if bimestre %}
+            Faltas neste bimestre: {{ faltas_bimestre }}
+        {% endif %}
+    </div>
     <table>
         <tr>
             <th>Matéria</th>
             <th>Nota</th>
             <th>Observação</th>
-            <th>Data de Lançamento</th>
         </tr>
         {% for nota in notas %}
         <tr{% if nota.nota < 70 %} style="color: red; font-weight: bold;"{% endif %}>
             <td>{{ nota.materia.name_subject }}</td>
             <td>{{ nota.nota }}</td>
             <td>{{ nota.observacao }}</td>
-            <td>{{ nota.data_lancamento }}</td>
         </tr>
         {% empty %}
         <tr>
-            <td colspan="4">Nenhuma nota lançada.</td>
+            <td colspan="3">Nenhuma nota lançada.</td>
         </tr>
         {% endfor %}
     </table>

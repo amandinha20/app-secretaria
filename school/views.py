@@ -58,9 +58,24 @@ def boletim_aluno(request, aluno_id):
     ]
     bimestre = request.GET.get('bimestre')
     notas = Nota.objects.filter(aluno=aluno).select_related('materia')
+    faltas_bimestre = 0
+    meses_bimestre = {
+        1: [1, 2, 3],        # Janeiro, Fevereiro, Março
+        2: [4, 5, 6],        # Abril, Maio, Junho
+        3: [8, 9],           # Agosto, Setembro
+        4: [10, 11],         # Outubro, Novembro
+    }
     if bimestre:
-        notas = notas.filter(bimestre=bimestre)
-        bimestre = int(bimestre)
+        try:
+            bimestre_int = int(bimestre)
+            notas = notas.filter(bimestre=bimestre_int)
+            bimestre = bimestre_int
+            # Contar faltas do aluno no bimestre selecionado
+            from .models import Falta
+            meses = meses_bimestre.get(bimestre_int, [])
+            faltas_bimestre = Falta.objects.filter(aluno=aluno, status='F', data__month__in=meses).count()
+        except ValueError:
+            bimestre = ''
     else:
         bimestre = ''
     tem_alerta = any(nota.nota < 70 for nota in notas)
@@ -70,15 +85,30 @@ def boletim_aluno(request, aluno_id):
         'tem_alerta': tem_alerta,
         'bimestre': bimestre,
         'bimestre_choices': BIMESTRE_CHOICES,
+        'faltas_bimestre': faltas_bimestre,
     })
 
 def boletim_aluno_pdf(request, aluno_id):
     aluno = get_object_or_404(Aluno, id=aluno_id)
     bimestre = request.GET.get('bimestre')
     notas = Nota.objects.filter(aluno=aluno).select_related('materia')
+    faltas_bimestre = 0
+    meses_bimestre = {
+        1: [1, 2, 3],        # Janeiro, Fevereiro, Março
+        2: [4, 5, 6],        # Abril, Maio, Junho
+        3: [8, 9],           # Agosto, Setembro
+        4: [10, 11],         # Outubro, Novembro
+    }
     if bimestre:
-        notas = notas.filter(bimestre=bimestre)
-    context = {'aluno': aluno, 'notas': notas}
+        try:
+            bimestre_int = int(bimestre)
+            notas = notas.filter(bimestre=bimestre_int)
+            from .models import Falta
+            meses = meses_bimestre.get(bimestre_int, [])
+            faltas_bimestre = Falta.objects.filter(aluno=aluno, status='F', data__month__in=meses).count()
+        except Exception:
+            pass
+    context = {'aluno': aluno, 'notas': notas, 'faltas_bimestre': faltas_bimestre, 'bimestre': bimestre}
     html_string = render_to_string('boletim.html', context)
     pdf = HTML(string=html_string, base_url=None).write_pdf(stylesheets=None)
     response = HttpResponse(pdf, content_type='application/pdf')

@@ -3,8 +3,11 @@
 
 {% block content %}
   {{ custom_help|safe }}
-  <form id="bimestre-form" style="margin-bottom: 20px;">
+  <style>
+    .bimestre-form-inline { margin-bottom: 20px; }
+  </style>
+  <div class="bimestre-form-inline">
     {{ bimestre_form.as_p }}
-  </form>
+  </div>
   {{ block.super }}
 {% endblock %}

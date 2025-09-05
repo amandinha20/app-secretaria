@@ -1,3 +1,109 @@
+
+from django.contrib import admin
+from .models import Turmas, Aluno, Materia, Nota, AlunoNotas
+from django.http import HttpResponseRedirect
+# ModelAdmin que redireciona para o fluxo customizado de notas por aluno
+class NotasPorAlunoRedirectAdmin(admin.ModelAdmin):
+    def changelist_view(self, request, extra_context=None):
+        return HttpResponseRedirect('/admin/notas-por-aluno/select-turma/')
+
+admin.site.register(AlunoNotas, NotasPorAlunoRedirectAdmin)
+
+# Novo fluxo de Notas por Aluno
+from django.urls import path
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+
+def notas_por_aluno_select_turma(request):
+    turmas = Turmas.objects.all().order_by('class_name')
+    if 'turma' in request.GET:
+        return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={request.GET['turma']}")
+    return render(request, 'admin/notas_por_aluno/select_turma.html', {'turmas': turmas})
+
+def notas_por_aluno_select_aluno(request):
+    turma_id = request.GET.get('turma')
+    turma = get_object_or_404(Turmas, id=turma_id)
+    alunos = Aluno.objects.filter(class_choices=turma).order_by('complet_name_aluno')
+    if 'aluno' in request.GET:
+        return redirect(f"/admin/notas-por-aluno/select-bimestre/?turma={turma_id}&aluno={request.GET['aluno']}")
+    return render(request, 'admin/notas_por_aluno/select_aluno.html', {'turma': turma, 'alunos': alunos})
+
+def notas_por_aluno_select_bimestre(request):
+    turma_id = request.GET.get('turma')
+    aluno_id = request.GET.get('aluno')
+    turma = get_object_or_404(Turmas, id=turma_id)
+    aluno = get_object_or_404(Aluno, id=aluno_id)
+    BIMESTRE_CHOICES = [
+        (1, '1º Bimestre'),
+        (2, '2º Bimestre'),
+        (3, '3º Bimestre'),
+        (4, '4º Bimestre'),
+    ]
+    if 'bimestre' in request.GET:
+        return redirect(f"/admin/notas-por-aluno/form/?turma={turma_id}&aluno={aluno_id}&bimestre={request.GET['bimestre']}")
+    return render(request, 'admin/notas_por_aluno/select_bimestre.html', {
+        'turma': turma,
+        'aluno': aluno,
+        'bimestre_choices': BIMESTRE_CHOICES,
+    })
+
+def notas_por_aluno_form(request):
+    turma_id = request.GET.get('turma')
+    aluno_id = request.GET.get('aluno')
+    bimestre = request.GET.get('bimestre')
+    turma = get_object_or_404(Turmas, id=turma_id)
+    aluno = get_object_or_404(Aluno, id=aluno_id)
+    materias = Materia.objects.all().order_by('name_subject')
+    BIMESTRE_LABELS = {
+        '1': '1º Bimestre',
+        '2': '2º Bimestre',
+        '3': '3º Bimestre',
+        '4': '4º Bimestre',
+        1: '1º Bimestre',
+        2: '2º Bimestre',
+        3: '3º Bimestre',
+        4: '4º Bimestre',
+    }
+    mensagem = ''
+    if request.method == 'POST':
+        for materia in materias:
+            nota_val = request.POST.get(f'nota_{materia.id}')
+            obs_val = request.POST.get(f'obs_{materia.id}')
+            if nota_val:
+                Nota.objects.update_or_create(
+                    aluno=aluno,
+                    materia=materia,
+                    bimestre=int(bimestre),
+                    defaults={
+                        'nota': nota_val,
+                        'observacao': obs_val,
+                    }
+                )
+        mensagem = 'Notas salvas com sucesso!'
+    return render(request, 'admin/notas_por_aluno/form_notas.html', {
+        'turma': turma,
+        'aluno': aluno,
+        'bimestre': bimestre,
+        'bimestre_label': BIMESTRE_LABELS.get(bimestre, bimestre),
+        'materias': materias,
+        'mensagem': mensagem,
+    })
+
+# Adiciona as URLs customizadas ao admin
+def get_custom_urls(urls):
+    custom_urls = [
+        path('notas-por-aluno/select-turma/', notas_por_aluno_select_turma, name='notas_por_aluno_select_turma'),
+        path('notas-por-aluno/select-aluno/', notas_por_aluno_select_aluno, name='notas_por_aluno_select_aluno'),
+        path('notas-por-aluno/select-bimestre/', notas_por_aluno_select_bimestre, name='notas_por_aluno_select_bimestre'),
+        path('notas-por-aluno/form/', notas_por_aluno_form, name='notas_por_aluno_form'),
+    ]
+    return custom_urls + urls
+
+# Patch no admin site para incluir as novas URLs
+
+# Deve ser executado só no final, após todas as importações e definições
+original_get_urls = admin.site.get_urls
+admin.site.get_urls = lambda: get_custom_urls(original_get_urls())
 from django.contrib import admin
 from .models import Aluno, Responsavel, Professor, Turmas, Materia, Contrato, Nota, AlunoNotas, Falta, Advertencia, DocumentoAdvertencia
 from .admin_attendance import AttendanceDateAdmin
@@ -374,13 +480,29 @@ class ContratoAdmin(admin.ModelAdmin):
 # Permite editar notas diretamente na tela do admin do aluno
 
 # Inline customizado para Nota, sem campo bimestre
+from django import forms
+class NotaInlineForm(forms.ModelForm):
+    class Meta:
+        model = Nota
+        fields = ('materia', 'nota', 'observacao', 'bimestre')
+    def clean(self):
+        cleaned_data = super().clean()
+        # Pega o bimestre do POST do formulário batch
+        bimestre = self.data.get('bimestre')
+        if bimestre:
+            try:
+                cleaned_data['bimestre'] = int(bimestre)
+            except Exception:
+                cleaned_data['bimestre'] = bimestre
+        return cleaned_data
+
 class NotaInline(admin.TabularInline):
     model = Nota
     extra = 1
-    fields = ('materia', 'nota', 'observacao')
-    # Remove bimestre do inline
+    form = NotaInlineForm
+    fields = ('materia', 'nota', 'observacao', 'bimestre')
     def get_fields(self, request, obj=None):
-        return ('materia', 'nota', 'observacao')
+        return ('materia', 'nota', 'observacao', 'bimestre')
 
 # Admin para o proxy AlunoNotas (visualização de notas por aluno)
 
@@ -409,29 +531,53 @@ class AlunoNotasAdmin(admin.ModelAdmin):
         return Aluno.objects.all()
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
-        # Adiciona o formulário de bimestre ao contexto
-        if extra_context is None:
-            extra_context = {}
-        # Sempre cria o form de bimestre com os dados do POST, se houver
-        if request.method == 'POST':
-            bimestre_form = BimestreBatchForm(request.POST)
-        else:
-            bimestre_form = BimestreBatchForm()
-        extra_context['bimestre_form'] = bimestre_form
-        extra_context['custom_help'] = mark_safe(
-            '<div style="margin: 10px 0; padding: 10px; background: #e6f7ff; border: 1px solid #91d5ff; color: #005580; font-weight: bold;">Selecione o bimestre abaixo. Todas as notas adicionadas neste lote serão salvas para o bimestre escolhido.</div>'
-        )
+        # Seleção de turma
+        turma_id = request.GET.get('turma')
+        aluno_id = object_id
+        bimestre = request.GET.get('bimestre')
+        from .models import Turmas, Aluno, Materia, Nota
+        BIMESTRE_CHOICES = [
+            (1, '1º Bimestre'),
+            (2, '2º Bimestre'),
+            (3, '3º Bimestre'),
+            (4, '4º Bimestre'),
+        ]
+        if not turma_id:
+            turmas = Turmas.objects.all().order_by('class_name')
+            return render(request, 'admin/notas_por_aluno/select_turma.html', {'turmas': turmas})
+        turma = Turmas.objects.get(id=turma_id)
+        if not bimestre:
+            return render(request, 'admin/notas_por_aluno/select_bimestre.html', {
+                'turma': turma,
+                'aluno': Aluno.objects.get(id=aluno_id),
+                'bimestre_choices': BIMESTRE_CHOICES,
+            })
         # Intercepta o salvamento das notas para incluir o bimestre selecionado
-        if request.method == 'POST' and bimestre_form.is_valid():
-            bimestre = bimestre_form.cleaned_data['bimestre']
-            # Altera o POST para incluir o bimestre em cada nota nova
+        if request.method == 'POST':
+            bimestre_int = int(bimestre)
             post_data = request.POST.copy()
             for key in post_data:
-                if key.startswith('nota_set-') and key.endswith('-id') and not post_data[key]:
+                if key.startswith('nota_set-') and key.endswith('-id'):
                     prefix = key[:-3]
-                    post_data[prefix + '-bimestre'] = bimestre
+                    materia = post_data.get(prefix + '-materia')
+                    nota = post_data.get(prefix + '-nota')
+                    if materia and nota:
+                        post_data[prefix + '-bimestre'] = bimestre_int
             request.POST = post_data
+        # Passa turma e bimestre para o contexto do formulário
+        if extra_context is None:
+            extra_context = {}
+        extra_context['turma_id'] = turma_id
+        extra_context['bimestre'] = bimestre
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        extra_context['custom_help'] = mark_safe(
+            '<div style="margin: 10px 0; padding: 10px; background: #e6f7ff; border: 1px solid #91d5ff; color: #005580; font-weight: bold;">Clique no nome do aluno para adicionar ou visualizar as notas.</div>'
+        )
+        return super().changelist_view(request, extra_context=extra_context)
 
     def render_change_form(self, request, context, *args, **kwargs):
         # Adiciona o formulário de bimestre acima do inline
@@ -449,7 +595,6 @@ class AlunoNotasAdmin(admin.ModelAdmin):
 # Registra todos os modelos e admins customizados no admin do Django
 admin.site.register(Aluno, AlunoAdmin)
 admin.site.register(Advertencia, AdvertenciaAdmin)
-admin.site.register(AlunoNotas, AlunoNotasAdmin)
 admin.site.register(Responsavel, ResponsaveisAdmin)
 admin.site.register(Professor, ProfessorAdmin)
 admin.site.register(Turmas, TurmasAdmin)
