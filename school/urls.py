@@ -31,3 +31,49 @@ urlpatterns = [
     path('desempenho/disciplina/', desempenho_disciplina_select, name='desempenho_disciplina_select'),
     path('advertencia/<int:advertencia_id>/pdf/', gerar_advertencia_pdf, name='gerar_advertencia_pdf'),
 ]
+# Importando as novas views para calendário acadêmico
+from .views import (
+    calendario_academico, adicionar_evento_calendario, 
+    editar_evento_calendario, excluir_evento_calendario
+)
+
+# Adicionando as novas rotas para calendário acadêmico
+urlpatterns += [
+    # Rotas para Calendário Acadêmico
+    path('calendario/', calendario_academico, name='calendario_academico'),
+    path('calendario/adicionar/', adicionar_evento_calendario, name='adicionar_evento_calendario'),
+    path('calendario/<int:evento_id>/editar/', editar_evento_calendario, name='editar_evento_calendario'),
+    path('calendario/<int:evento_id>/excluir/', excluir_evento_calendario, name='excluir_evento_calendario'),
+]
+
+
+# Importando as novas views para agenda de professores
+from .views import (
+    agenda_professor, adicionar_atividade_agenda, 
+    editar_atividade_agenda, excluir_atividade_agenda, lista_professores_agenda
+)
+
+# Adicionando as novas rotas para agenda de professores
+urlpatterns += [
+    # Rotas para Agenda de Professores
+    path('professores/', lista_professores_agenda, name='lista_professores_agenda'),
+    path('agenda/professor/<int:professor_id>/', agenda_professor, name='agenda_professor'),
+    path('agenda/professor/<int:professor_id>/adicionar/', adicionar_atividade_agenda, name='adicionar_atividade_agenda'),
+    path('agenda/atividade/<int:atividade_id>/editar/', editar_atividade_agenda, name='editar_atividade_agenda'),
+    path('agenda/atividade/<int:atividade_id>/excluir/', excluir_atividade_agenda, name='excluir_atividade_agenda'),
+]
+
+
+# Importando as novas views para notificações
+from .views import (
+    listar_notificacoes, marcar_notificacao_enviada, excluir_notificacao
+)
+
+# Adicionando as novas rotas para notificações
+urlpatterns += [
+    # Rotas para Notificações
+    path('notificacoes/', listar_notificacoes, name='listar_notificacoes'),
+    path('notificacoes/<int:notificacao_id>/enviada/', marcar_notificacao_enviada, name='marcar_notificacao_enviada'),
+    path('notificacoes/<int:notificacao_id>/excluir/', excluir_notificacao, name='excluir_notificacao'),
+]
+

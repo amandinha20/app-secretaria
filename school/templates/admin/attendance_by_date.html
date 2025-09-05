@@ -12,27 +12,34 @@
 {% block content %}
 <div id="content-main">
     <h1>Chamadas Realizadas</h1>
+    
     <div class="module">
-        <form method="get" style="margin-bottom: 20px;">
-            <label for="data">Selecione a data da chamada:</label>
-            <input type="date" id="data" name="data" value="{{ selected_date }}" required>
-            <button type="submit">Buscar</button>
-        </form>
-        {% if selected_date %}
-            <h2>Turmas com chamada em {{ formatted_date }}</h2>
-            {% if turmas %}
-            <ul>
-                {% for turma in turmas %}
-                <li>
-                    <strong>{{ turma.turma }}</strong> - Presentes: {{ turma.presentes }} / Faltas: {{ turma.faltas }} / Total: {{ turma.total_alunos }}
-                    <a href="{{ turma.url }}">Ver chamada desta turma</a>
-                </li>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Turmas</th>
+                    <th>Total de Alunos</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for date_info in dates %}
+                <tr>
+                    <td>{{ date_info.date|date:"d/m/Y" }}</td>
+                    <td>{{ date_info.turmas_count }} turma(s)</td>
+                    <td>{{ date_info.total_records }} aluno(s)</td>
+                    <td>
+                        <a href="{{ date_info.url }}" class="button">Ver Detalhes</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center;">Nenhuma chamada realizada ainda.</td>
+                </tr>
                 {% endfor %}
-            </ul>
-            {% else %}
-                <p>Nenhuma chamada encontrada para esta data.</p>
-            {% endif %}
-        {% endif %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

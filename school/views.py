@@ -46,42 +46,30 @@ def gerar_contrato_pdf(request, aluno_id):
     response['Content-Disposition'] = f'inline; filename="contrato_{aluno.complet_name_aluno}.pdf"'
     return response
 
-
 def boletim_aluno(request, aluno_id):
-    from .models import Nota
+    # Busca o aluno pelo ID
     aluno = get_object_or_404(Aluno, id=aluno_id)
-    BIMESTRE_CHOICES = [
-        (1, '1º Bimestre'),
-        (2, '2º Bimestre'),
-        (3, '3º Bimestre'),
-        (4, '4º Bimestre'),
-    ]
-    bimestre = request.GET.get('bimestre')
+    # Busca as notas do aluno, otimizando com select_related para evitar múltiplas queries
     notas = Nota.objects.filter(aluno=aluno).select_related('materia')
-    if bimestre:
-        notas = notas.filter(bimestre=bimestre)
-        bimestre = int(bimestre)
-    else:
-        bimestre = ''
+    # Verifica se existe alguma nota abaixo de 70 para alerta
     tem_alerta = any(nota.nota < 70 for nota in notas)
-    return render(request, 'boletim_select_bimestre.html', {
-        'aluno': aluno,
-        'notas': notas,
-        'tem_alerta': tem_alerta,
-        'bimestre': bimestre,
-        'bimestre_choices': BIMESTRE_CHOICES,
-    })
+    # Renderiza o boletim do aluno com as notas e alerta
+    return render(request, 'boletim.html', {'aluno': aluno, 'notas': notas, 'tem_alerta': tem_alerta})
 
 def boletim_aluno_pdf(request, aluno_id):
+    # Busca o aluno pelo ID
     aluno = get_object_or_404(Aluno, id=aluno_id)
-    bimestre = request.GET.get('bimestre')
+    # Busca as notas do aluno
     notas = Nota.objects.filter(aluno=aluno).select_related('materia')
-    if bimestre:
-        notas = notas.filter(bimestre=bimestre)
+    # Monta o contexto para o template
     context = {'aluno': aluno, 'notas': notas}
+    # Renderiza o HTML do boletim
     html_string = render_to_string('boletim.html', context)
+    # Gera o PDF do boletim (sem recursos externos)
     pdf = HTML(string=html_string, base_url=None).write_pdf(stylesheets=None)
+    # Cria a resposta HTTP com o PDF gerado
     response = HttpResponse(pdf, content_type='application/pdf')
+    # Define o nome do arquivo PDF no cabeçalho da resposta
     response['Content-Disposition'] = f'inline; filename="boletim_{aluno.complet_name_aluno}.pdf"'
     return response
 
@@ -182,3 +170,253 @@ def desempenho_disciplina_select(request):
     materias = Materia.objects.all()
     # Renderiza a página de seleção de disciplina
     return render(request, 'desempenho_disciplina_select.html', {'materias': materias})
+
+# Views para Calendário Acadêmico
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import CalendarioAcademico
+from django.views.generic import ListView
+from datetime import datetime, date
+
+def calendario_academico(request):
+    """View para exibir o calendário acadêmico"""
+    eventos = CalendarioAcademico.objects.all().order_by('data_inicio')
+    
+    # Separar eventos por mês para melhor organização
+    eventos_por_mes = {}
+    for evento in eventos:
+        mes_ano = evento.data_inicio.strftime('%Y-%m')
+        if mes_ano not in eventos_por_mes:
+            eventos_por_mes[mes_ano] = []
+        eventos_por_mes[mes_ano].append(evento)
+    
+    context = {
+        'eventos': eventos,
+        'eventos_por_mes': eventos_por_mes,
+        'hoje': date.today(),
+    }
+    return render(request, 'calendario_academico.html', context)
+
+def adicionar_evento_calendario(request):
+    """View para adicionar um novo evento ao calendário"""
+    if request.method == 'POST':
+        titulo = request.POST.get('titulo')
+        descricao = request.POST.get('descricao')
+        data_inicio = request.POST.get('data_inicio')
+        data_fim = request.POST.get('data_fim')
+        tipo_evento = request.POST.get('tipo_evento')
+        turma_id = request.POST.get('turma')
+        
+        # Validação básica
+        if not titulo or not data_inicio or not tipo_evento:
+            messages.error(request, 'Título, data de início e tipo de evento são obrigatórios.')
+            return render(request, 'calendario_form.html', {
+                'turmas': Turmas.objects.all(),
+                'tipos_evento': CalendarioAcademico.TIPO_EVENTO_CHOICES
+            })
+        
+        # Criar o evento
+        evento = CalendarioAcademico(
+            titulo=titulo,
+            descricao=descricao,
+            data_inicio=data_inicio,
+            data_fim=data_fim if data_fim else None,
+            tipo_evento=tipo_evento,
+            turma_id=turma_id if turma_id else None
+        )
+        evento.save()
+        
+        messages.success(request, 'Evento adicionado com sucesso!')
+        return redirect('calendario_academico')
+    
+    context = {
+        'turmas': Turmas.objects.all(),
+        'tipos_evento': CalendarioAcademico.TIPO_EVENTO_CHOICES
+    }
+    return render(request, 'calendario_form.html', context)
+
+def editar_evento_calendario(request, evento_id):
+    """View para editar um evento do calendário"""
+    evento = get_object_or_404(CalendarioAcademico, id=evento_id)
+    
+    if request.method == 'POST':
+        evento.titulo = request.POST.get('titulo')
+        evento.descricao = request.POST.get('descricao')
+        evento.data_inicio = request.POST.get('data_inicio')
+        evento.data_fim = request.POST.get('data_fim') if request.POST.get('data_fim') else None
+        evento.tipo_evento = request.POST.get('tipo_evento')
+        turma_id = request.POST.get('turma')
+        evento.turma_id = turma_id if turma_id else None
+        
+        evento.save()
+        messages.success(request, 'Evento atualizado com sucesso!')
+        return redirect('calendario_academico')
+    
+    context = {
+        'evento': evento,
+        'turmas': Turmas.objects.all(),
+        'tipos_evento': CalendarioAcademico.TIPO_EVENTO_CHOICES
+    }
+    return render(request, 'calendario_form.html', context)
+
+def excluir_evento_calendario(request, evento_id):
+    """View para excluir um evento do calendário"""
+    evento = get_object_or_404(CalendarioAcademico, id=evento_id)
+    
+    if request.method == 'POST':
+        evento.delete()
+        messages.success(request, 'Evento excluído com sucesso!')
+        return redirect('calendario_academico')
+    
+    context = {'evento': evento}
+    return render(request, 'confirmar_exclusao.html', context)
+
+
+
+# Views para Agenda de Professores
+from .models import AgendaProfessor, Professor
+
+def agenda_professor(request, professor_id):
+    """View para exibir a agenda de um professor específico"""
+    professor = get_object_or_404(Professor, id=professor_id)
+    atividades = AgendaProfessor.objects.filter(professor=professor).order_by('data', 'hora_inicio')
+    
+    # Separar atividades por data para melhor organização
+    atividades_por_data = {}
+    for atividade in atividades:
+        data_str = atividade.data.strftime('%Y-%m-%d')
+        if data_str not in atividades_por_data:
+            atividades_por_data[data_str] = []
+        atividades_por_data[data_str].append(atividade)
+    
+    context = {
+        'professor': professor,
+        'atividades': atividades,
+        'atividades_por_data': atividades_por_data,
+        'hoje': date.today(),
+    }
+    return render(request, 'agenda_professor.html', context)
+
+def adicionar_atividade_agenda(request, professor_id):
+    """View para adicionar uma nova atividade à agenda do professor"""
+    professor = get_object_or_404(Professor, id=professor_id)
+    
+    if request.method == 'POST':
+        titulo = request.POST.get('titulo')
+        descricao = request.POST.get('descricao')
+        data = request.POST.get('data')
+        hora_inicio = request.POST.get('hora_inicio')
+        hora_fim = request.POST.get('hora_fim')
+        tipo_atividade = request.POST.get('tipo_atividade')
+        
+        # Validação básica
+        if not titulo or not data or not hora_inicio or not tipo_atividade:
+            messages.error(request, 'Título, data, hora de início e tipo de atividade são obrigatórios.')
+            return render(request, 'agenda_professor_form.html', {
+                'professor': professor,
+                'tipos_atividade': AgendaProfessor.TIPO_ATIVIDADE_CHOICES
+            })
+        
+        # Criar a atividade
+        atividade = AgendaProfessor(
+            professor=professor,
+            titulo=titulo,
+            descricao=descricao,
+            data=data,
+            hora_inicio=hora_inicio,
+            hora_fim=hora_fim if hora_fim else None,
+            tipo_atividade=tipo_atividade
+        )
+        atividade.save()
+        
+        messages.success(request, 'Atividade adicionada com sucesso!')
+        return redirect('agenda_professor', professor_id=professor.id)
+    
+    context = {
+        'professor': professor,
+        'tipos_atividade': AgendaProfessor.TIPO_ATIVIDADE_CHOICES
+    }
+    return render(request, 'agenda_professor_form.html', context)
+
+def editar_atividade_agenda(request, atividade_id):
+    """View para editar uma atividade da agenda"""
+    atividade = get_object_or_404(AgendaProfessor, id=atividade_id)
+    
+    if request.method == 'POST':
+        atividade.titulo = request.POST.get('titulo')
+        atividade.descricao = request.POST.get('descricao')
+        atividade.data = request.POST.get('data')
+        atividade.hora_inicio = request.POST.get('hora_inicio')
+        atividade.hora_fim = request.POST.get('hora_fim') if request.POST.get('hora_fim') else None
+        atividade.tipo_atividade = request.POST.get('tipo_atividade')
+        
+        atividade.save()
+        messages.success(request, 'Atividade atualizada com sucesso!')
+        return redirect('agenda_professor', professor_id=atividade.professor.id)
+    
+    context = {
+        'atividade': atividade,
+        'professor': atividade.professor,
+        'tipos_atividade': AgendaProfessor.TIPO_ATIVIDADE_CHOICES
+    }
+    return render(request, 'agenda_professor_form.html', context)
+
+def excluir_atividade_agenda(request, atividade_id):
+    """View para excluir uma atividade da agenda"""
+    atividade = get_object_or_404(AgendaProfessor, id=atividade_id)
+    professor_id = atividade.professor.id
+    
+    if request.method == 'POST':
+        atividade.delete()
+        messages.success(request, 'Atividade excluída com sucesso!')
+        return redirect('agenda_professor', professor_id=professor_id)
+    
+    context = {'atividade': atividade}
+    return render(request, 'confirmar_exclusao_atividade.html', context)
+
+def lista_professores_agenda(request):
+    """View para listar todos os professores para acesso às suas agendas"""
+    professores = Professor.objects.all().order_by('complet_name_prof')
+    
+    context = {'professores': professores}
+    return render(request, 'lista_professores_agenda.html', context)
+
+
+# Views para Notificações
+from .models import Notificacao
+
+def listar_notificacoes(request):
+    """View para listar todas as notificações"""
+    notificacoes = Notificacao.objects.all().order_by('-data_criacao')
+    
+    context = {
+        'notificacoes': notificacoes,
+        'total_notificacoes': notificacoes.count(),
+        'notificacoes_nao_enviadas': notificacoes.filter(enviada=False).count(),
+    }
+    return render(request, 'notificacoes.html', context)
+
+def marcar_notificacao_enviada(request, notificacao_id):
+    """View para marcar uma notificação como enviada"""
+    notificacao = get_object_or_404(Notificacao, id=notificacao_id)
+    
+    if request.method == 'POST':
+        notificacao.enviada = True
+        notificacao.data_envio = timezone.now()
+        notificacao.save()
+        messages.success(request, 'Notificação marcada como enviada!')
+    
+    return redirect('listar_notificacoes')
+
+def excluir_notificacao(request, notificacao_id):
+    """View para excluir uma notificação"""
+    notificacao = get_object_or_404(Notificacao, id=notificacao_id)
+    
+    if request.method == 'POST':
+        notificacao.delete()
+        messages.success(request, 'Notificação excluída com sucesso!')
+        return redirect('listar_notificacoes')
+    
+    context = {'notificacao': notificacao}
+    return render(request, 'confirmar_exclusao_notificacao.html', context)
+
