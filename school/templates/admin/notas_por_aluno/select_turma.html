@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Selecionar Turma</h1>
+<form method="get">
+    <label for="turma">Turma:</label>
+    <select name="turma" id="turma" required>
+        {% for turma in turmas %}
+            <option value="{{ turma.id }}">{{ turma.class_name }} - {{ turma.itinerary_name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Próximo</button>
+</form>
+{% endblock %}
