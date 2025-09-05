@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='school' %}">School</a>
+    &rsaquo; Chamadas Realizadas
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Chamadas Realizadas</h1>
+    <div class="module">
+        <form method="get" style="margin-bottom: 20px;">
+            <label for="data">Selecione a data da chamada:</label>
+            <input type="date" id="data" name="data" value="{{ selected_date }}" required>
+            <button type="submit">Buscar</button>
+        </form>
+        {% if selected_date %}
+            <h2>Turmas com chamada em {{ formatted_date }}</h2>
+            {% if turmas %}
+            <ul>
+                {% for turma in turmas %}
+                <li>
+                    <strong>{{ turma.turma }}</strong> - Presentes: {{ turma.presentes }} / Faltas: {{ turma.faltas }} / Total: {{ turma.total_alunos }}
+                    <a href="{{ turma.url }}">Ver chamada desta turma</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                <p>Nenhuma chamada encontrada para esta data.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

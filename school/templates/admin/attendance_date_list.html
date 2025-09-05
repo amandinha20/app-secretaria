@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='school' %}">School</a>
+    &rsaquo; <a href="{% url 'admin:school_falta_changelist' %}">Faltas</a>
+    &rsaquo; Chamadas por Data
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Chamadas por Data</h1>
+    <div style="margin-bottom: 20px;">
+        <a href="{% url 'admin:attendance_fazer_chamada' %}" class="button" style="background: #28a745; color: #fff; padding: 8px 16px; border-radius: 4px; text-decoration: none;">+ Fazer Chamada</a>
+    </div>
+    <!-- Tabela de datas removida conforme solicitado -->
+    <div class="module">
+        <h2>Links Rápidos</h2>
+        <ul>
+            <li><a href="{% url 'admin:attendance_by_date' %}">Ver Todas as Chamadas</a></li>
+            <li><a href="{% url 'admin:school_turmas_changelist' %}">Gerenciar Turmas</a></li>
+            <li><a href="{% url 'admin:school_aluno_changelist' %}">Gerenciar Alunos</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
