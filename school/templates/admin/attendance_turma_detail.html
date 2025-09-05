@@ -6,7 +6,7 @@
     <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
     &rsaquo; <a href="{% url 'admin:app_list' app_label='school' %}">School</a>
     &rsaquo; <a href="{% url 'admin:attendance_by_date' %}">Chamadas Realizadas</a>
-    &rsaquo; <a href="{% url 'admin:attendance_date_detail' date %}">{{ formatted_date }}</a>
+    &rsaquo; <a href="{% url 'admin:attendance_date_detail' date|date:"Y-m-d" %}">{{ date|date:"d/m/Y" }}</a>
     &rsaquo; {{ turma }}
 </div>
 {% endblock %}
@@ -17,10 +17,10 @@
     
     <div class="module">
         <div class="summary">
-            <h3>Resumo da chamada</h3>
+            <h3>Resumen de la llamada</h3>
             <table>
                 <tr>
-                    <th>Total de Alunos:</th>
+                    <th>Total de Alumnos:</th>
                     <td>{{ summary.total_alunos }}</td>
                 </tr>
                 <tr>
@@ -32,7 +32,7 @@
                     <td>{{ summary.faltas }}</td>
                 </tr>
                 <tr>
-                    <th>Taxa de Presença:</th>
+                    <th>Tasa de Presencia:</th>
                     <td>
                         {% if summary.total_alunos > 0 %}
                             {{ summary.presentes|floatformat:1 }}% ({{ summary.presentes }}/{{ summary.total_alunos }})
@@ -48,8 +48,8 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Aluno</th>
-                    <th>Situação</th>
+                    <th>Alumno</th>
+                    <th>Estado</th>
                 </tr>
             </thead>
             <tbody>
@@ -75,7 +75,7 @@
     </div>
     
     <div class="submit-row">
-    <a href="{% url 'admin:attendance_date_detail' date %}" class="button">← Voltar para Turmas</a>
+        <a href="{% url 'admin:attendance_date_detail' date %}" class="button">← Voltar para Turmas</a>
         <a href="{% url 'admin:attendance_by_date' %}" class="button">← Voltar para Chamadas</a>
     </div>
 </div>

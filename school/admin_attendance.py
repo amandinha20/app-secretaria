@@ -24,33 +24,26 @@ class AttendanceDateAdmin(admin.ModelAdmin):
         return custom_urls + urls
     
     def attendance_by_date(self, request):
-        """Show calendar to select a date, then show turmas with attendance on that date"""
-        selected_date = request.GET.get('data')
-        turma_info = []
-        formatted_date = None
-        if selected_date:
-            try:
-                date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
-                formatted_date = date_obj.strftime('%d/%m/%Y')
-                turmas = Turmas.objects.filter(faltas__data=date_obj).distinct()
-                for turma in turmas:
-                    total_alunos = Falta.objects.filter(data=date_obj, turma=turma).count()
-                    presentes = Falta.objects.filter(data=date_obj, turma=turma, status='P').count()
-                    faltas = Falta.objects.filter(data=date_obj, turma=turma, status='F').count()
-                    turma_info.append({
-                        'turma': turma,
-                        'total_alunos': total_alunos,
-                        'presentes': presentes,
-                        'faltas': faltas,
-                        'url': reverse('admin:attendance_turma_detail', args=[date_obj.strftime('%Y-%m-%d'), turma.id])
-                    })
-            except ValueError:
-                pass
+        """Show list of unique dates with attendance records"""
+        dates = Falta.objects.values('data').distinct().order_by('-data')
+        
+        # Add count of turmas for each date
+        date_info = []
+        for date_dict in dates:
+            date = date_dict['data']
+            turmas_count = Falta.objects.filter(data=date).values('turma').distinct().count()
+            total_records = Falta.objects.filter(data=date).count()
+            
+            date_info.append({
+                'date': date,
+                'turmas_count': turmas_count,
+                'total_records': total_records,
+            'url': reverse('admin:school_falta_attendance_date_detail', args=[date.strftime('%Y-%m-%d')])
+            })
+        
         context = {
             'title': 'Chamadas Realizadas',
-            'selected_date': selected_date,
-            'formatted_date': formatted_date,
-            'turmas': turma_info,
+            'dates': date_info,
             'opts': self.model._meta,
         }
         return render(request, 'admin/attendance_by_date.html', context)

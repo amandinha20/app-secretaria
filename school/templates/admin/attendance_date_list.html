@@ -13,10 +13,40 @@
 {% block content %}
 <div id="content-main">
     <h1>Chamadas por Data</h1>
-    <div style="margin-bottom: 20px;">
-        <a href="{% url 'admin:attendance_fazer_chamada' %}" class="button" style="background: #28a745; color: #fff; padding: 8px 16px; border-radius: 4px; text-decoration: none;">+ Fazer Chamada</a>
+    
+    <div class="module">
+        <p>Selecione uma data para visualizar as chamadas realizadas:</p>
+        
+        <div class="results">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Turmas</th>
+                        <th>Total de Alunos</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for date_info in dates %}
+                    <tr>
+                        <td>{{ date_info.date|date:"d/m/Y" }}</td>
+                        <td>{{ date_info.turmas_count }} turma(s)</td>
+                        <td>{{ date_info.total_records }} aluno(s)</td>
+                        <td>
+                            <a href="{{ date_info.url }}" class="button">Ver Detalhes</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center;">Nenhuma chamada realizada ainda.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    <!-- Tabela de datas removida conforme solicitado -->
+    
     <div class="module">
         <h2>Links Rápidos</h2>
         <ul>
