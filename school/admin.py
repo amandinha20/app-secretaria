@@ -92,7 +92,6 @@ class FaltaAdmin(admin.ModelAdmin):
     list_display = ('data', 'turma', 'aluno', 'status', 'chamada_link')
     list_filter = ('data', 'turma', 'status')
     search_fields = ('aluno__complet_name_aluno', 'turma__class_name')
-    form = FaltaForm
 
     # Exibe só alunos da turma selecionada
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -135,8 +134,17 @@ class AlunoAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de alunos
     list_display = (
         'id', 'complet_name_aluno', 'phone_number_aluno', 'responsavel',
-        'email_aluno', 'cpf_aluno', 'birthday_aluno', 'contrato_pdf_link', 'boletim_link', 'grafico_link'
+        'email_aluno', 'cpf_aluno', 'birthday_aluno', 'contrato_pdf_link', 'boletim_link', 'grafico_link', 'faltas_pdf_link'
     )
+    # Adiciona um link para visualizar o relatório de faltas do aluno em PDF
+    def faltas_pdf_link(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        if obj.id:
+            url = reverse('faltas_aluno_pdf', args=[obj.id])
+            return format_html(f'<a href="{url}" target="_blank">📄 Faltas PDF</a>')
+        return "-"
+    faltas_pdf_link.short_description = "Faltas em PDF"
     # Define quais campos serão links clicáveis na lista
     list_display_links = ('complet_name_aluno', 'phone_number_aluno', 'email_aluno')
     # Permite busca pelo nome completo do aluno

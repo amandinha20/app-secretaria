@@ -32,4 +32,6 @@ urlpatterns = [
     path('desempenho/turma/', desempenho_turma_select, name='desempenho_turma_select'),
     path('desempenho/disciplina/', desempenho_disciplina_select, name='desempenho_disciplina_select'),
     path('advertencia/<int:advertencia_id>/pdf/', gerar_advertencia_pdf, name='gerar_advertencia_pdf'),
+    path('faltas/aluno/<int:aluno_id>/', views.faltas_aluno, name='faltas_aluno'),
+    path('faltas/aluno/<int:aluno_id>/pdf/', views.faltas_aluno_pdf, name='faltas_aluno_pdf'),
 ]

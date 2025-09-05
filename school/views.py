@@ -1,3 +1,46 @@
+from weasyprint import HTML
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+def faltas_aluno_pdf(request, aluno_id):
+    aluno = get_object_or_404(Aluno, id=aluno_id)
+    faltas = Falta.objects.filter(aluno=aluno, status='F')
+    total_faltas = faltas.count()
+    turma = aluno.class_choices
+    total_aulas = Falta.objects.filter(turma=turma).values('data').distinct().count()
+    percentual = (total_faltas / total_aulas * 100) if total_aulas > 0 else 0
+    passou_limite = percentual > 25
+    html_string = render_to_string('faltas_aluno_pdf.html', {
+        'aluno': aluno,
+        'faltas': faltas,
+        'total_faltas': total_faltas,
+        'total_aulas': total_aulas,
+        'percentual': round(percentual, 2),
+        'passou_limite': passou_limite
+    })
+    html = HTML(string=html_string)
+    pdf = html.write_pdf()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'filename=faltas_{aluno.complet_name_aluno}.pdf'
+    return response
+from django.shortcuts import render, get_object_or_404
+from .models import Falta, Aluno, Turmas
+
+def faltas_aluno(request, aluno_id):
+    aluno = get_object_or_404(Aluno, id=aluno_id)
+    faltas = Falta.objects.filter(aluno=aluno, status='F')
+    total_faltas = faltas.count()
+    turma = aluno.class_choices
+    total_aulas = Falta.objects.filter(turma=turma).values('data').distinct().count()
+    percentual = (total_faltas / total_aulas * 100) if total_aulas > 0 else 0
+    passou_limite = percentual > 25
+    return render(request, 'faltas_aluno.html', {
+        'aluno': aluno,
+        'faltas': faltas,
+        'total_faltas': total_faltas,
+        'total_aulas': total_aulas,
+        'percentual': round(percentual, 2),
+        'passou_limite': passou_limite
+    })
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.template.loader import render_to_string
