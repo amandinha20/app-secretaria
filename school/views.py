@@ -1,4 +1,12 @@
 from django.shortcuts import render, get_object_or_404
+from django import template
+
+# Filtro customizado para acessar dicionário por chave dinâmica
+def dict_get(d, key):
+    return d.get(key)
+
+register = template.Library()
+register.filter('dict_get', dict_get)
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
@@ -76,17 +84,40 @@ def boletim_aluno(request, aluno_id):
             faltas_bimestre = Falta.objects.filter(aluno=aluno, status='F', data__month__in=meses).count()
         except ValueError:
             bimestre = ''
+        tem_alerta = any(nota.nota < 70 for nota in notas)
+        materias = Materia.objects.all()
+        # Para cada matéria, busca a nota do bimestre selecionado
+        for materia in materias:
+            materia.nota_bimestre = notas.filter(materia=materia).first()
+        return render(request, 'boletim_select_bimestre.html', {
+            'aluno': aluno,
+            'notas': notas,
+            'tem_alerta': tem_alerta,
+            'bimestre': bimestre,
+            'bimestre_choices': BIMESTRE_CHOICES,
+            'faltas_bimestre': faltas_bimestre,
+            'materias': materias,
+        })
     else:
-        bimestre = ''
-    tem_alerta = any(nota.nota < 70 for nota in notas)
-    return render(request, 'boletim_select_bimestre.html', {
-        'aluno': aluno,
-        'notas': notas,
-        'tem_alerta': tem_alerta,
-        'bimestre': bimestre,
-        'bimestre_choices': BIMESTRE_CHOICES,
-        'faltas_bimestre': faltas_bimestre,
-    })
+        # Organiza as notas por matéria e bimestre
+        materias = Materia.objects.all()
+        notas_dict = {}
+        for materia in materias:
+            notas_dict[materia.id] = {}
+        for nota in notas:
+            notas_dict[nota.materia.id][nota.bimestre] = nota
+        # Adiciona as notas por bimestre em cada matéria
+        for materia in materias:
+            materia.notas_por_bimestre = notas_dict.get(materia.id, {})
+        tem_alerta = any(nota.nota < 70 for nota in notas)
+        return render(request, 'boletim_select_bimestre.html', {
+            'aluno': aluno,
+            'materias': materias,
+            'tem_alerta': tem_alerta,
+            'bimestre': bimestre,
+            'bimestre_choices': BIMESTRE_CHOICES,
+            'faltas_bimestre': faltas_bimestre,
+        })
 
 def boletim_aluno_pdf(request, aluno_id):
     aluno = get_object_or_404(Aluno, id=aluno_id)
