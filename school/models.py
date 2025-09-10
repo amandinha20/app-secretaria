@@ -233,4 +233,3 @@ class Nota(models.Model):
 
 
 
-#teste de conexão com o github! Delete depois
