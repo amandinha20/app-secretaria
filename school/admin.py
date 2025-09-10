@@ -154,8 +154,9 @@ class FaltaForm(forms.ModelForm):
             'data': forms.SelectDateWidget(),
         }
 
+
 class FaltaAdmin(admin.ModelAdmin):
-    list_display = ('data', 'turma', 'aluno', 'status')
+    list_display = ('data', 'turma', 'aluno', 'status', 'chamada_link')
     list_filter = ('data', 'turma', 'status')
     search_fields = ('aluno__complet_name_aluno', 'turma__class_name')
     form = FaltaForm
@@ -177,6 +178,36 @@ class FaltaAdmin(admin.ModelAdmin):
             kwargs["queryset"] = Aluno.objects.filter(class_choices=turma_id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def chamada_link(self, obj):
+        url = f"/admin/school/turmas/{obj.turma.id}/chamada/"
+        return format_html(f'<a href="{url}">📝 Fazer Chamada</a>')
+    chamada_link.short_description = "Fazer Chamada"
+
+# admin.site.register(Falta, FaltaAdmin)  # Removido para evitar conflito com AttendanceDateAdmin
+from django.utils.safestring import mark_safe
+from django.urls import reverse
+from django.utils.html import format_html
+from django.urls import path, re_path
+
+# Permite editar alunos diretamente na tela do admin do responsável
+class AlunoInline(admin.TabularInline):
+    model = Aluno
+    extra = 0
+
+# Admin para o modelo Responsavel
+class ResponsaveisAdmin(admin.ModelAdmin):
+    # Campos exibidos na lista
+    list_display = ('id', 'complet_name', 'phone_number', 'email', 'cpf', 'birthday')
+    # Campos que são links clicáveis
+    list_display_links = ('complet_name', 'phone_number', 'email')
+    # Permite busca pelo nome
+    search_fields = ('complet_name',)
+    # Permite filtrar pelo nome
+    list_filter = ('complet_name',)
+    # Exibe os alunos relacionados diretamente na tela do responsável
+    inlines = [AlunoInline]
+
+# Admin para o modelo Aluno
     def ver_datas_chamadas(self, request, queryset):
         from django.http import HttpResponseRedirect
         return HttpResponseRedirect('/faltas/')

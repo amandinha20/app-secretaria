@@ -68,8 +68,8 @@ class Falta(models.Model):
 
     class Meta:
         unique_together = ('data', 'turma', 'aluno')
-        verbose_name = "Falta"
-        verbose_name_plural = "Faltas"
+        verbose_name = "Chamada"
+        verbose_name_plural = "Chamada"
 
     def __str__(self):
         return f"{self.data} - {self.turma} - {self.aluno}: {self.get_status_display()}"
@@ -200,11 +200,22 @@ class Contrato(models.Model):
         verbose_name = "Contrato"
         verbose_name_plural = "Contrato"
     
+
 class Nota(models.Model):
     # Relação com o aluno
     aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name='notas')
     # Relação com a matéria
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE, related_name='notas')
+
+    # Bimestre da nota
+    BIMESTRE_CHOICES = [
+        (1, '1º Bimestre'),
+        (2, '2º Bimestre'),
+        (3, '3º Bimestre'),
+        (4, '4º Bimestre'),
+    ]
+    bimestre = models.PositiveSmallIntegerField(choices=BIMESTRE_CHOICES, verbose_name='Bimestre')
+
     # Valor da nota
     nota = models.DecimalField(max_digits=5, decimal_places=2)
     # Observação opcional sobre a nota
@@ -215,7 +226,7 @@ class Nota(models.Model):
     def __str__(self):
         # Retorna uma string com nome do aluno, matéria e nota
         return f"{self.aluno.complet_name_aluno} - {self.materia.name_subject}: {self.nota}"
-    
+
     class Meta:
         verbose_name = "Nota"
         verbose_name_plural = "Nota"
