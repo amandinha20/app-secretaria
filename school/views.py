@@ -100,19 +100,19 @@ def boletim_aluno(request, aluno_id):
         })
     else:
         # Organiza as notas por matéria e bimestre
-        materias = Materia.objects.all()
-        notas_dict = {}
-        for materia in materias:
-            notas_dict[materia.id] = {}
+        materias = list(Materia.objects.all())
+        notas_dict = {m.id: {} for m in materias}
         for nota in notas:
             notas_dict[nota.materia.id][nota.bimestre] = nota
-        # Adiciona as notas por bimestre em cada matéria
+        materias_com_nota = []
         for materia in materias:
             materia.notas_por_bimestre = notas_dict.get(materia.id, {})
+            if materia.notas_por_bimestre:
+                materias_com_nota.append(materia)
         tem_alerta = any(nota.nota < 70 for nota in notas)
         return render(request, 'boletim_select_bimestre.html', {
             'aluno': aluno,
-            'materias': materias,
+            'materias': materias_com_nota,
             'tem_alerta': tem_alerta,
             'bimestre': bimestre,
             'bimestre_choices': BIMESTRE_CHOICES,
@@ -120,9 +120,11 @@ def boletim_aluno(request, aluno_id):
         })
 
 def boletim_aluno_pdf(request, aluno_id):
-    aluno = get_object_or_404(Aluno, id=aluno_id)
+    aluno = get_object_or_404(Aluno.objects.prefetch_related('notas__materia'), id=aluno_id)
     bimestre = request.GET.get('bimestre')
-    notas = Nota.objects.filter(aluno=aluno).select_related('materia')
+    # Carrega todas as matérias e notas do aluno de uma vez
+    materias = list(Materia.objects.all().only('id', 'name_subject'))
+    notas = list(aluno.notas.select_related('materia').all())
     faltas_bimestre = 0
     meses_bimestre = {
         1: [1, 2, 3],        # Janeiro, Fevereiro, Março
@@ -130,18 +132,60 @@ def boletim_aluno_pdf(request, aluno_id):
         3: [8, 9],           # Agosto, Setembro
         4: [10, 11],         # Outubro, Novembro
     }
+    BIMESTRE_CHOICES = [
+        (1, '1º Bimestre'),
+        (2, '2º Bimestre'),
+        (3, '3º Bimestre'),
+        (4, '4º Bimestre'),
+    ]
     if bimestre:
         try:
             bimestre_int = int(bimestre)
-            notas = notas.filter(bimestre=bimestre_int)
+            notas_bim = [n for n in notas if n.bimestre == bimestre_int]
             from .models import Falta
             meses = meses_bimestre.get(bimestre_int, [])
-            faltas_bimestre = Falta.objects.filter(aluno=aluno, status='F', data__month__in=meses).count()
+            faltas_bimestre = aluno.faltas.filter(status='F', data__month__in=meses).count()
         except Exception:
-            pass
-    context = {'aluno': aluno, 'notas': notas, 'faltas_bimestre': faltas_bimestre, 'bimestre': bimestre}
+            notas_bim = []
+        tem_alerta = any(nota.nota < 70 for nota in notas_bim)
+        for materia in materias:
+            materia.nota_bimestre = next((n for n in notas_bim if n.materia_id == materia.id), None)
+        context = {
+            'aluno': aluno,
+            'notas': notas_bim,
+            'faltas_bimestre': faltas_bimestre,
+            'bimestre': bimestre,
+            'bimestre_choices': BIMESTRE_CHOICES,
+            'tem_alerta': tem_alerta,
+            'materias': materias,
+        }
+    else:
+        # Organiza as notas por matéria e bimestre sem queries extras
+        materias = list(materias)
+        notas_dict = {m.id: {} for m in materias}
+        for nota in notas:
+            notas_dict[nota.materia_id][nota.bimestre] = nota
+        materias_com_nota = []
+        for materia in materias:
+            materia.notas_por_bimestre = notas_dict.get(materia.id, {})
+            if materia.notas_por_bimestre:
+                materias_com_nota.append(materia)
+        tem_alerta = any(nota.nota < 70 for nota in notas)
+        context = {
+            'aluno': aluno,
+            'materias': materias_com_nota,
+            'tem_alerta': tem_alerta,
+            'bimestre': bimestre,
+            'bimestre_choices': BIMESTRE_CHOICES,
+            'faltas_bimestre': faltas_bimestre,
+        }
+    import time
+    t0 = time.time()
     html_string = render_to_string('boletim.html', context)
+    t1 = time.time()
     pdf = HTML(string=html_string, base_url=None).write_pdf(stylesheets=None)
+    t2 = time.time()
+    print(f"Tempo render_to_string: {t1-t0:.2f}s | Tempo write_pdf: {t2-t1:.2f}s | Total: {t2-t0:.2f}s")
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="boletim_{aluno.complet_name_aluno}.pdf"'
     return response

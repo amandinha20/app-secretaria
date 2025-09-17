@@ -17,7 +17,21 @@ from django.contrib import messages
 def notas_por_aluno_select_turma(request):
     turmas = Turmas.objects.all().order_by('class_name')
     if 'turma' in request.GET:
-        return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={request.GET['turma']}")
+        turma_id = request.GET['turma']
+        turma_obj = Turmas.objects.get(id=turma_id)
+        class_name = turma_obj.class_name
+        # Se for 2° ou 3° ano, pega itinerário
+        if class_name in ['2°', '3°']:
+            itinerario = request.GET.get('itinerario', turma_obj.itinerary_name)
+            # Você pode salvar ou processar o itinerário aqui se necessário
+            return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={turma_id}&itinerario={itinerario}")
+        # Se for 1° ano, pega turma_abc
+        elif class_name == '1°':
+            turma_abc = request.GET.get('turma_abc', turma_obj.class_name)
+            # Você pode salvar ou processar turma_abc aqui se necessário
+            return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={turma_id}&turma_abc={turma_abc}")
+        else:
+            return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={turma_id}")
     return render(request, 'admin/notas_por_aluno/select_turma.html', {'turmas': turmas})
 
 def notas_por_aluno_select_aluno(request):

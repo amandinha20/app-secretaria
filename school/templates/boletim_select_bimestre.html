@@ -17,6 +17,15 @@
 </head>
 <body>
     <h1>Boletim de {{ aluno.complet_name_aluno }}</h1>
+    {% if bimestre %}
+        <div style="text-align:center; font-size:18px; font-weight:bold; margin-bottom:10px;">
+            {% for val, label in bimestre_choices %}
+                {% if val == bimestre %}
+                    {{ label }}
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
     <div class="bimestre-form">
         <form method="get" style="display:inline-block;">
             <label for="bimestre">Selecione o bimestre:</label>
@@ -45,36 +54,61 @@
         {% endif %}
     </div>
     <table>
-        <tr>
-            <th>Matéria</th>
-            {% for val, label in bimestre_choices %}
-                <th>{{ label }}</th>
-            {% endfor %}
-            <th>Observação</th>
-        </tr>
-        {% for materia in materias %}
+        {% if not bimestre %}
             <tr>
-                <td>{{ materia.name_subject }}</td>
+                <th>Matéria</th>
                 {% for val, label in bimestre_choices %}
-                    {% with nota=materia.notas_por_bimestre[val] %}
+                    <th>{{ label }}</th>
+                {% endfor %}
+                <th>Observação</th>
+            </tr>
+            {% for materia in materias %}
+                <tr>
+                    <td>{{ materia.name_subject }}</td>
+                    {% for val, label in bimestre_choices %}
+                        {% with nota=materia.notas_por_bimestre|dict_get:val %}
+                            <td{% if nota and nota.nota < 70 %} style="color: red; font-weight: bold;"{% endif %}>
+                                {% if nota %}{{ nota.nota }}{% else %}-{% endif %}
+                            </td>
+                        {% endwith %}
+                    {% endfor %}
+                    <td>
+                        {% for val, label in bimestre_choices %}
+                            {% with nota=materia.notas_por_bimestre|dict_get:val %}
+                                {% if nota and nota.observacao %}{{ nota.observacao }}<br>{% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6">Nenhuma matéria encontrada.</td>
+                </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <th>Matéria</th>
+                <th>Nota</th>
+                <th>Observação</th>
+            </tr>
+            {% for materia in materias %}
+                <tr>
+                    <td>{{ materia.name_subject }}</td>
+                    {% with nota=materia.nota_bimestre %}
                         <td{% if nota and nota.nota < 70 %} style="color: red; font-weight: bold;"{% endif %}>
                             {% if nota %}{{ nota.nota }}{% else %}-{% endif %}
                         </td>
                     {% endwith %}
-                {% endfor %}
-                <td>
-                    {% for val, label in bimestre_choices %}
-                        {% with nota=materia.notas_por_bimestre[val] %}
-                            {% if nota and nota.observacao %}{{ nota.observacao }}<br>{% endif %}
-                        {% endwith %}
-                    {% endfor %}
-                </td>
-            </tr>
-        {% empty %}
-            <tr>
-                <td colspan="6">Nenhuma matéria encontrada.</td>
-            </tr>
-        {% endfor %}
+                    <td>
+                        {% if materia.nota_bimestre and materia.nota_bimestre.observacao %}{{ materia.nota_bimestre.observacao }}{% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="3">Nenhuma matéria encontrada.</td>
+                </tr>
+            {% endfor %}
+        {% endif %}
     </table>
 </body>
 </html>
