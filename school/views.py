@@ -78,15 +78,24 @@ def boletim_aluno(request, aluno_id):
             bimestre_int = int(bimestre)
             notas = notas.filter(bimestre=bimestre_int)
             bimestre = bimestre_int
-            # Contar faltas do aluno no bimestre selecionado
+            # Contar faltas e presenças do aluno no bimestre selecionado
             from .models import Falta
             meses = meses_bimestre.get(bimestre_int, [])
             faltas_bimestre = Falta.objects.filter(aluno=aluno, status='F', data__month__in=meses).count()
+            presencas_bimestre = Falta.objects.filter(aluno=aluno, status='P', data__month__in=meses).count()
+            total_chamadas = faltas_bimestre + presencas_bimestre
+            if total_chamadas > 0:
+                porcentagem_presenca = round((presencas_bimestre / total_chamadas) * 100, 1)
+            else:
+                porcentagem_presenca = None
         except ValueError:
             bimestre = ''
+            porcentagem_presenca = None
         tem_alerta = any(nota.nota < 70 for nota in notas)
-        materias = Materia.objects.all()
-        # Para cada matéria, busca a nota do bimestre selecionado
+        # Filtra apenas matérias que possuem nota lançada neste bimestre
+        materias = [nota.materia for nota in notas]
+        # Remove duplicatas mantendo a ordem
+        materias = list(dict.fromkeys(materias))
         for materia in materias:
             materia.nota_bimestre = notas.filter(materia=materia).first()
         return render(request, 'boletim_select_bimestre.html', {
@@ -97,6 +106,7 @@ def boletim_aluno(request, aluno_id):
             'bimestre_choices': BIMESTRE_CHOICES,
             'faltas_bimestre': faltas_bimestre,
             'materias': materias,
+            'porcentagem_presenca': porcentagem_presenca,
         })
     else:
         # Organiza as notas por matéria e bimestre
@@ -110,13 +120,16 @@ def boletim_aluno(request, aluno_id):
             if materia.notas_por_bimestre:
                 materias_com_nota.append(materia)
         tem_alerta = any(nota.nota < 70 for nota in notas)
+        # Calcular o total de faltas em todos os bimestres
+        from .models import Falta
+        total_faltas = aluno.faltas.filter(status='F').count()
         return render(request, 'boletim_select_bimestre.html', {
             'aluno': aluno,
             'materias': materias_com_nota,
             'tem_alerta': tem_alerta,
             'bimestre': bimestre,
             'bimestre_choices': BIMESTRE_CHOICES,
-            'faltas_bimestre': faltas_bimestre,
+            'faltas_bimestre': total_faltas,
         })
 
 def boletim_aluno_pdf(request, aluno_id):
@@ -145,8 +158,15 @@ def boletim_aluno_pdf(request, aluno_id):
             from .models import Falta
             meses = meses_bimestre.get(bimestre_int, [])
             faltas_bimestre = aluno.faltas.filter(status='F', data__month__in=meses).count()
+            presencas_bimestre = aluno.faltas.filter(status='P', data__month__in=meses).count()
+            total_chamadas = faltas_bimestre + presencas_bimestre
+            if total_chamadas > 0:
+                porcentagem_presenca = round((presencas_bimestre / total_chamadas) * 100, 1)
+            else:
+                porcentagem_presenca = None
         except Exception:
             notas_bim = []
+            porcentagem_presenca = None
         tem_alerta = any(nota.nota < 70 for nota in notas_bim)
         for materia in materias:
             materia.nota_bimestre = next((n for n in notas_bim if n.materia_id == materia.id), None)
@@ -158,6 +178,7 @@ def boletim_aluno_pdf(request, aluno_id):
             'bimestre_choices': BIMESTRE_CHOICES,
             'tem_alerta': tem_alerta,
             'materias': materias,
+            'porcentagem_presenca': porcentagem_presenca,
         }
     else:
         # Organiza as notas por matéria e bimestre sem queries extras
@@ -171,13 +192,16 @@ def boletim_aluno_pdf(request, aluno_id):
             if materia.notas_por_bimestre:
                 materias_com_nota.append(materia)
         tem_alerta = any(nota.nota < 70 for nota in notas)
+        # Calcular o total de faltas em todos os bimestres
+        from .models import Falta
+        total_faltas = aluno.faltas.filter(status='F').count()
         context = {
             'aluno': aluno,
             'materias': materias_com_nota,
             'tem_alerta': tem_alerta,
             'bimestre': bimestre,
             'bimestre_choices': BIMESTRE_CHOICES,
-            'faltas_bimestre': faltas_bimestre,
+            'faltas_bimestre': total_faltas,
         }
     import time
     t0 = time.time()

@@ -23,15 +23,62 @@ def notas_por_aluno_select_turma(request):
         # Se for 2° ou 3° ano, pega itinerário
         if class_name in ['2°', '3°']:
             itinerario = request.GET.get('itinerario', turma_obj.itinerary_name)
-            # Você pode salvar ou processar o itinerário aqui se necessário
-            return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={turma_id}&itinerario={itinerario}")
+            # Redireciona para o formulário batch de notas
+            return redirect(f"/admin/notas-por-aluno/form-batch/?turma={turma_id}&itinerario={itinerario}")
         # Se for 1° ano, pega turma_abc
         elif class_name == '1°':
             turma_abc = request.GET.get('turma_abc', turma_obj.class_name)
-            # Você pode salvar ou processar turma_abc aqui se necessário
-            return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={turma_id}&turma_abc={turma_abc}")
+            return redirect(f"/admin/notas-por-aluno/form-batch/?turma={turma_id}&turma_abc={turma_abc}")
         else:
-            return redirect(f"/admin/notas-por-aluno/select-aluno/?turma={turma_id}")
+            return redirect(f"/admin/notas-por-aluno/form-batch/?turma={turma_id}")
+    return render(request, 'admin/notas_por_aluno/select_turma.html', {'turmas': turmas})
+# Novo formulário batch para lançar notas de todos os alunos da turma
+def notas_por_aluno_form_batch(request):
+    turma_id = request.GET.get('turma')
+    itinerario = request.GET.get('itinerario')
+    turma_abc = request.GET.get('turma_abc')
+    turma = get_object_or_404(Turmas, id=turma_id)
+    alunos = Aluno.objects.filter(class_choices=turma).order_by('complet_name_aluno')
+    materias = list(Materia.objects.all().order_by('name_subject'))
+    # Filtra matérias DS/DJ conforme itinerário
+    itinerario = request.GET.get('itinerario')
+    if itinerario == 'DS':
+        materias = [m for m in materias if m.name_subject != 'DJ']
+    elif itinerario == 'DJ':
+        materias = [m for m in materias if m.name_subject != 'DS']
+    else:
+        materias = [m for m in materias if m.name_subject not in ['DS', 'DJ']]
+    BIMESTRE_CHOICES = [
+        (1, '1º Bimestre'),
+        (2, '2º Bimestre'),
+        (3, '3º Bimestre'),
+        (4, '4º Bimestre'),
+    ]
+    mensagem = ''
+    if request.method == 'POST':
+        bimestre = request.POST.get('bimestre')
+        for aluno in alunos:
+            for materia in materias:
+                nota_val = request.POST.get(f'nota_{aluno.id}_{materia.id}')
+                obs_val = request.POST.get(f'obs_{aluno.id}_{materia.id}')
+                if nota_val:
+                    Nota.objects.update_or_create(
+                        aluno=aluno,
+                        materia=materia,
+                        bimestre=int(bimestre),
+                        defaults={
+                            'nota': nota_val,
+                            'observacao': obs_val,
+                        }
+                    )
+        mensagem = 'Notas salvas com sucesso!'
+    return render(request, 'admin/notas_por_aluno/form_notas_batch.html', {
+        'turma': turma,
+        'alunos': alunos,
+        'materias': materias,
+        'bimestre_choices': BIMESTRE_CHOICES,
+        'mensagem': mensagem,
+    })
     return render(request, 'admin/notas_por_aluno/select_turma.html', {'turmas': turmas})
 
 def notas_por_aluno_select_aluno(request):
@@ -110,6 +157,7 @@ def get_custom_urls(urls):
         path('notas-por-aluno/select-aluno/', notas_por_aluno_select_aluno, name='notas_por_aluno_select_aluno'),
         path('notas-por-aluno/select-bimestre/', notas_por_aluno_select_bimestre, name='notas_por_aluno_select_bimestre'),
         path('notas-por-aluno/form/', notas_por_aluno_form, name='notas_por_aluno_form'),
+        path('notas-por-aluno/form-batch/', notas_por_aluno_form_batch, name='notas_por_aluno_form_batch'),
     ]
     return custom_urls + urls
 
@@ -369,17 +417,26 @@ class TurmasAdmin(admin.ModelAdmin):
             except ValueError:
                 messages.error(request, 'Formato de data inválido.')
                 return redirect(request.path_info)
+            erro = False
             for aluno in alunos:
                 status = request.POST.get(f'status_{aluno.id}')
-                if status in ['P', 'F']:
-                    Falta.objects.update_or_create(
-                        data=data_obj,
-                        turma=turma,
-                        aluno=aluno,
-                        defaults={'status': status}
-                    )
-            messages.success(request, 'Chamada registrada com sucesso!')
-            return redirect('admin:school_turmas_changelist')
+                if status and status not in ['P', 'F']:
+                    erro = True
+            if erro:
+                messages.error(request, "Só são aceitas as letras 'P' para Presente e 'F' para Falta. Corrija os valores informados.")
+                return redirect(request.path_info)
+            else:
+                for aluno in alunos:
+                    status = request.POST.get(f'status_{aluno.id}')
+                    if status in ['P', 'F']:
+                        Falta.objects.update_or_create(
+                            data=data_obj,
+                            turma=turma,
+                            aluno=aluno,
+                            defaults={'status': status}
+                        )
+                messages.success(request, 'Chamada registrada com sucesso!')
+                return redirect('admin:school_turmas_changelist')
         return render(request, 'admin/fazer_chamada.html', {
             'title': f'Chamada da turma {turma.class_name}',
             'turma': turma,
@@ -647,17 +704,26 @@ class CustomAttendanceDateAdmin(AttendanceDateAdmin):
             except ValueError:
                 messages.error(request, 'Formato de data inválido.')
                 return redirect(request.path_info)
+            erro = False
             for aluno in alunos:
                 status = request.POST.get(f'status_{aluno.id}')
-                if status in ['P', 'F']:
-                    Falta.objects.update_or_create(
-                        data=data_obj,
-                        turma=turma,
-                        aluno=aluno,
-                        defaults={'status': status}
-                    )
-            messages.success(request, 'Chamada registrada com sucesso!')
-            return redirect('admin:attendance_by_date')
+                if status and status not in ['P', 'F']:
+                    erro = True
+            if erro:
+                messages.error(request, "Só são aceitas as letras 'P' para Presente e 'F' para Falta. Corrija os valores informados.")
+                return redirect(request.path_info)
+            else:
+                for aluno in alunos:
+                    status = request.POST.get(f'status_{aluno.id}')
+                    if status in ['P', 'F']:
+                        Falta.objects.update_or_create(
+                            data=data_obj,
+                            turma=turma,
+                            aluno=aluno,
+                            defaults={'status': status}
+                        )
+                messages.success(request, 'Chamada registrada com sucesso!')
+                return redirect('admin:attendance_by_date')
         return render(request, 'admin/fazer_chamada.html', {
             'title': f'Chamada da turma {turma.class_name}',
             'turma': turma,

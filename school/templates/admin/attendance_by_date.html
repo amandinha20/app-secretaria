@@ -11,12 +11,13 @@
 
 {% block content %}
 <div id="content-main">
-    <h1>Chamadas Realizadas</h1>
+    <h1>Ver chamadas realizadas</h1>
+    <p>Selecione a data abaixo para visualizar as chamadas salvas naquele dia:</p>
     <div class="module">
         <form method="get" style="margin-bottom: 20px;">
-            <label for="data">Selecione a data da chamada:</label>
+            <label for="data">Data:</label>
             <input type="date" id="data" name="data" value="{{ selected_date }}" required>
-            <button type="submit">Buscar</button>
+            <button type="submit">Ver Chamada</button>
         </form>
         {% if selected_date %}
             <h2>Turmas com chamada em {{ formatted_date }}</h2>

@@ -33,7 +33,13 @@
     {% endif %}
     {% if bimestre %}
         <div style="margin-bottom: 15px; font-weight: bold; text-align: center;">
-            Faltas neste bimestre: {{ faltas_bimestre }}
+            Faltas neste bimestre: {{ faltas_bimestre }}<br>
+            Porcentagem de presença: 
+            {% if porcentagem_presenca is not None %}
+                {{ porcentagem_presenca }}%
+            {% else %}
+                0%
+            {% endif %}
         </div>
         <table>
             <tr>
@@ -54,6 +60,9 @@
             {% endfor %}
         </table>
     {% else %}
+        <div style="margin-bottom: 15px; font-weight: bold; text-align: center;">
+            Total de faltas: {{ faltas_bimestre }}
+        </div>
         <table>
             <tr>
                 <th>Matéria</th>

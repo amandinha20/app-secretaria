@@ -50,7 +50,12 @@
     {% endif %}
     <div style="margin-bottom: 15px; font-weight: bold; text-align: center;">
         {% if bimestre %}
-            Faltas neste bimestre: {{ faltas_bimestre }}
+            Faltas neste bimestre: {{ faltas_bimestre }}<br>
+            {% if porcentagem_presenca is not None %}
+                Presença: {{ porcentagem_presenca }}%
+            {% endif %}
+        {% else %}
+            Total de faltas: {{ faltas_bimestre }}
         {% endif %}
     </div>
     <table>

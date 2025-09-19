@@ -6,7 +6,9 @@
     <select name="turma" id="turma" required onchange="onTurmaChange()">
         <option value="">Selecione...</option>
         {% for turma in turmas %}
-            <option value="{{ turma.id }}" data-class-name="{{ turma.class_name }}">{{ turma.class_name }} - {{ turma.itinerary_name }}</option>
+            {% if turma.class_name in '1° 2° 3°' %}
+                <option value="{{ turma.id }}" data-class-name="{{ turma.class_name }}">{{ turma.class_name }}</option>
+            {% endif %}
         {% endfor %}
     </select>
 
