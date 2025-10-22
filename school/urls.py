@@ -12,6 +12,8 @@ from .views import (
     desempenho_aluno_select, desempenho_turma_select, desempenho_disciplina_select
 )
 from .views_advertencia import gerar_advertencia_pdf
+from . import views_relatorio
+from . import views
 
 # Lista de padrões de URL do app
 urlpatterns = [
@@ -30,4 +32,15 @@ urlpatterns = [
     path('desempenho/turma/', desempenho_turma_select, name='desempenho_turma_select'),
     path('desempenho/disciplina/', desempenho_disciplina_select, name='desempenho_disciplina_select'),
     path('advertencia/<int:advertencia_id>/pdf/', gerar_advertencia_pdf, name='gerar_advertencia_pdf'),
+    path('relatorio/excel/', views_relatorio.gerar_relatorio_presenca_excel, name='relatorio_excel'),
+    path('relatorio/pdf/', views_relatorio.gerar_relatorio_presenca_pdf, name='relatorio_pdf'),
+    # Seleção de turma e relatórios por turma
+    path('relatorio/select/', views_relatorio.relatorio_select, name='relatorio_select'),
+    path('relatorio/excel/<int:turma_id>/', views_relatorio.gerar_relatorio_presenca_excel_turma, name='relatorio_excel_turma'),
+    path('relatorio/pdf/<int:turma_id>/', views_relatorio.gerar_relatorio_presenca_pdf_turma, name='relatorio_pdf_turma'),
+    # Rotas para suspensões
+    path('suspensao/select/turma/', views.suspensao_select_turma, name='suspensao_select_turma'),
+    path('suspensao/select/aluno/<int:turma_id>/', views.suspensao_select_aluno, name='suspensao_select_aluno'),
+    path('suspensao/create/<int:turma_id>/<int:aluno_id>/', views.suspensao_create, name='suspensao_create'),
+    path('suspensao/create/<int:turma_id>/', views.suspensao_create, name='suspensao_create_no_aluno'),
 ]

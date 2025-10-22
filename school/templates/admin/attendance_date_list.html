@@ -23,6 +23,18 @@
             <li><a href="{% url 'admin:attendance_by_date' %}">Ver Todas as Chamadas</a></li>
             <li><a href="{% url 'admin:school_turmas_changelist' %}">Gerenciar Turmas</a></li>
             <li><a href="{% url 'admin:school_aluno_changelist' %}">Gerenciar Alunos</a></li>
+            <li>
+                Relatório de Faltas e Presenças
+                <ul style="margin-top:4px; margin-left:12px; list-style: disc;">
+                    <li><a href="{% url 'relatorio_select' %}">Selecionar Turma / Ver Relatórios</a></li>
+                </ul>
+            </li>
+            <li>
+                Suspensão
+                <ul style="margin-top:4px; margin-left:12px; list-style: disc;">
+                    <li><a href="{% url 'suspensao_select_turma' %}">Selecionar Turma / Suspender Aluno</a></li>
+                </ul>
+            </li>
         </ul>
     </div>
 </div>
