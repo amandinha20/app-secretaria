@@ -12,14 +12,25 @@
             ⚠️ Atenção: Este aluno possui nota(s) abaixo de 70!
         </div>
     {% endif %}
-    <!-- Exibe o gráfico de notas do aluno -->
+    <form method="get" style="margin-bottom:20px;">
+        <label for="materia">Ver desempenho por matéria:</label>
+        <select name="materia" id="materia" onchange="this.form.submit()">
+            <option value="">Geral (todas as matérias)</option>
+            {% for materia in materias %}
+                <option value="{{ materia.id }}" {% if materia_selecionada == materia.id %}selected{% endif %}>{{ materia.name_subject }}</option>
+            {% endfor %}
+        </select>
+        <noscript><button type="submit">Filtrar</button></noscript>
+    </form>
     <img src="data:image/png;base64,{{ grafico }}" alt="Gráfico de Notas">
-    <h2>Notas</h2>
+    <h2>Médias por Bimestre</h2>
     <ul>
-        <!-- Lista as notas do aluno por matéria -->
-        {% for nota in notas %}
-        <li>{{ nota.materia.name_subject }}: {{ nota.nota }}</li>
+        {% for label, media in medias_bimestre %}
+            <li>{{ label }}: {{ media }}</li>
         {% endfor %}
     </ul>
+    {% if recado %}
+        <div style="font-weight:bold; color:blue; margin-top:10px;">{{ recado }}</div>
+    {% endif %}
 </body>
 </html>
