@@ -169,6 +169,7 @@ admin.site.get_urls = lambda: get_custom_urls(original_get_urls())
 from django.contrib import admin
 from .models import Aluno, Responsavel, Professor, Turmas, Materia, Contrato, Nota, AlunoNotas, Falta, Advertencia, DocumentoAdvertencia
 from .admin_attendance import AttendanceDateAdmin
+from .models import Suspensao
 from datetime import datetime
 # Admin para DocumentoAdvertencia
 class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
@@ -738,3 +739,15 @@ class CustomAttendanceDateAdmin(AttendanceDateAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
 admin.site.register(Falta, CustomAttendanceDateAdmin)
+
+
+class SuspensaoAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/suspensao_redirect.html'
+    list_display = ('aluno', 'turma', 'data_inicio', 'data_fim', 'motivo', 'criado_por')
+
+
+admin.site.register(Suspensao, SuspensaoAdmin)
+class FaltaAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'status', 'data')  # campos que aparecerão na lista
+    list_filter = ('status', 'data')            # filtros laterais
+    search_fields = ('aluno__nome',) 

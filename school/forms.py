@@ -8,3 +8,17 @@ class ContratoAssinadoForm(forms.ModelForm):
         model = Contrato
         # Campos que serão exibidos no formulário
         fields = ['contrato_assinado']
+
+
+from .models import Suspensao
+
+
+class SuspensaoForm(forms.ModelForm):
+    class Meta:
+        model = Suspensao
+        fields = ['aluno', 'turma', 'data_inicio', 'data_fim', 'motivo']
+        widgets = {
+            'data_inicio': forms.DateInput(attrs={'type': 'date'}),
+            'data_fim': forms.DateInput(attrs={'type': 'date'}),
+            'motivo': forms.Textarea(attrs={'rows': 4}),
+        }
