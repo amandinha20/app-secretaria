@@ -1,6 +1,6 @@
 
 from django.contrib import admin
-from .models import Turmas, Aluno, Materia, Nota, AlunoNotas
+from .models import Turmas, Aluno, Materia, Nota, AlunoNotas, Recurso, Emprestimo
 from django.http import HttpResponseRedirect
 # ModelAdmin que redireciona para o fluxo customizado de notas por aluno
 class NotasPorAlunoRedirectAdmin(admin.ModelAdmin):
@@ -167,7 +167,7 @@ def get_custom_urls(urls):
 original_get_urls = admin.site.get_urls
 admin.site.get_urls = lambda: get_custom_urls(original_get_urls())
 from django.contrib import admin
-from .models import Aluno, Responsavel, Professor, Turmas, Materia, Contrato, Nota, AlunoNotas, Falta, Advertencia, DocumentoAdvertencia
+from .models import Aluno, Responsavel, Professor, Turmas, Materia, Contrato, Nota, AlunoNotas, Falta, Advertencia, DocumentoAdvertencia, Material, MaterialMovimentacao, Recurso, Emprestimo
 from .admin_attendance import AttendanceDateAdmin
 from datetime import datetime
 # Admin para DocumentoAdvertencia
@@ -210,6 +210,10 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.utils.html import format_html
 from django.urls import path, re_path
+from django import forms
+from django.utils import timezone
+from django.db import transaction
+from django.db.models import F
 
 # Permite editar alunos diretamente na tela do admin do responsável
 class AlunoInline(admin.TabularInline):
@@ -671,6 +675,142 @@ admin.site.register(Professor, ProfessorAdmin)
 admin.site.register(Turmas, TurmasAdmin)
 admin.site.register(Materia, MateriaAdmin)
 admin.site.register(Contrato, ContratoAdmin)
+
+# Admin para Materiais didáticos (estoque)
+class MaterialAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'quantidade', 'local')
+    search_fields = ('nome',)
+
+
+class MaterialMovimentacaoAdmin(admin.ModelAdmin):
+    list_display = ('material', 'tipo', 'quantidade', 'responsavel', 'data')
+    list_filter = ('tipo', 'data')
+    search_fields = ('material__nome', 'responsavel__username')
+
+
+admin.site.register(Material, MaterialAdmin)
+admin.site.register(MaterialMovimentacao, MaterialMovimentacaoAdmin)
+
+# Admin para Planejamento Semanal
+from django.utils.html import format_html
+
+class PlanejamentoSemanalAdmin(admin.ModelAdmin):
+    list_display = ('professor', 'turma', 'semana_inicio', 'criado_em', 'atualizado_em')
+    list_filter = ('professor', 'turma', 'semana_inicio')
+    search_fields = ('professor__complet_name_prof', 'turma__class_name')
+    readonly_fields = ('criado_em', 'atualizado_em')
+    fields = ('professor', 'turma', 'semana_inicio', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'criado_em', 'atualizado_em')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # se for superuser, vê tudo; senão restringe aos planejamentos do professor logado
+        if request.user.is_superuser:
+            return qs
+        # tenta localizar o Professor associado ao usuário
+        prof = getattr(request.user, 'professor_profile', None)
+        if prof:
+            return qs.filter(professor=prof)
+        return qs.none()
+
+    def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return hasattr(request.user, 'professor_profile') and request.user.professor_profile is not None
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        prof = getattr(request.user, 'professor_profile', None)
+        if not prof:
+            return False
+        if obj is None:
+            return True
+        return obj.professor_id == prof.id
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        prof = getattr(request.user, 'professor_profile', None)
+        if not prof:
+            return False
+        if obj is None:
+            return True
+        return obj.professor_id == prof.id
+
+    def get_readonly_fields(self, request, obj=None):
+        # professores não podem alterar o campo professor (é preenchido automaticamente)
+        ro = list(self.readonly_fields)
+        if not request.user.is_superuser:
+            ro = ro + ['professor']
+        return ro
+
+    def save_model(self, request, obj, form, change):
+        # se for professor (não superuser), preenche o campo professor automaticamente
+        if not request.user.is_superuser:
+            prof = getattr(request.user, 'professor_profile', None)
+            if prof:
+                obj.professor = prof
+        super().save_model(request, obj, form, change)
+
+from .models import PlanejamentoSemanal
+admin.site.register(PlanejamentoSemanal, PlanejamentoSemanalAdmin)
+
+# Admin para recursos e empréstimos
+class RecursoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'tipo', 'quantidade', 'local')
+    search_fields = ('nome',)
+
+
+class EmprestimoAdmin(admin.ModelAdmin):
+    list_display = ('recurso', 'quantidade', 'recurso_disponivel', 'nome_beneficiario', 'aluno', 'professor', 'usuario', 'data_emprestimo', 'retornado', 'data_devolucao_prevista')
+    list_filter = ('retornado', 'data_emprestimo')
+    search_fields = ('recurso__nome', 'nome_beneficiario', 'aluno__complet_name_aluno', 'professor__complet_name_prof')
+    readonly_fields = ('recurso_disponivel',)
+    actions = ['marcar_como_devolvido']
+
+    class EmprestimoForm(forms.ModelForm):
+        class Meta:
+            model = Emprestimo
+            fields = '__all__'
+
+        def clean(self):
+            cleaned = super().clean()
+            recurso = cleaned.get('recurso') or getattr(self.instance, 'recurso', None)
+            quantidade = cleaned.get('quantidade')
+            retornado = cleaned.get('retornado') if 'retornado' in cleaned else getattr(self.instance, 'retornado', False)
+            if recurso and quantidade is not None and not retornado:
+                # calcula quantidade disponível considerando empréstimo anterior (se houver)
+                available = recurso.quantidade
+                if self.instance and self.instance.pk:
+                    prev = Emprestimo.objects.filter(pk=self.instance.pk).first()
+                    if prev and not prev.retornado:
+                        # se o empréstimo anterior ainda estava deduzido do estoque,
+                        # o estoque atual já reflete essa dedução; portanto somamos de volta
+                        available = recurso.quantidade + (prev.quantidade or 0)
+                if quantidade > available:
+                    raise forms.ValidationError({'quantidade': 'Quantidade para empréstimo maior que a disponível.'})
+            return cleaned
+
+    form = EmprestimoForm
+    def recurso_disponivel(self, obj):
+        return obj.recurso.quantidade if obj and obj.recurso_id else '-'
+    recurso_disponivel.short_description = 'Disponível'
+
+    def marcar_como_devolvido(self, request, queryset):
+        updated = 0
+        for emprestimo in queryset.filter(retornado=False):
+            with transaction.atomic():
+                Recurso.objects.filter(pk=emprestimo.recurso_id).update(quantidade=F('quantidade') + emprestimo.quantidade)
+                emprestimo.retornado = True
+                emprestimo.data_devolucao = timezone.now()
+                emprestimo.save()
+                updated += 1
+        self.message_user(request, f'{updated} empréstimo(s) marcados como devolvidos.', level=messages.SUCCESS)
+    marcar_como_devolvido.short_description = 'Marcar seleção como devolvido'
+
+
+admin.site.register(Recurso, RecursoAdmin)
+admin.site.register(Emprestimo, EmprestimoAdmin)
 
 # Registra o AttendanceDateAdmin para o modelo Falta (visualização por data)
 from django.urls import path
