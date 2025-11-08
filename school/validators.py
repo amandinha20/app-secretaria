@@ -16,23 +16,25 @@ def validar_cpf(cpf):
     cpf = re.sub(r'[^0-9]', '', cpf)
     # Verifica se o CPF possui 11 dígitos
     if len(cpf) != 11:
-        return False
+        raise ValidationError('CPF inválido')
+    # Verifica se todos os dígitos são iguais (CPFs como 11111111111 são inválidos)
+    if len(set(cpf)) == 1:
+        raise ValidationError('CPF inválido')
     soma = 0
     # Calcula o primeiro dígito verificador
     for i in range(9):
-        soma += int(cpf[i]) * (10-i)
+        soma += int(cpf[i]) * (10 - i)
     resto = soma % 11
     digito1 = 0 if resto < 2 else 11 - resto
     soma = 0
     # Calcula o segundo dígito verificador
     for i in range(10):
-        soma += int(cpf[i]) * (11-i)
+        soma += int(cpf[i]) * (11 - i)
     resto = soma % 11
     digito2 = 0 if resto < 2 else 11 - resto
     # Verifica se os dígitos calculados conferem com os dígitos informados
-    if int(cpf[9]) == digito1 and int(cpf[10]) == digito2:
-        return True
-    return False
+    if int(cpf[9]) != digito1 or int(cpf[10]) != digito2:
+        raise ValidationError('CPF inválido')
 
 def validar_cpf_model(value):
     # Valida o CPF e lança exceção se for inválido
