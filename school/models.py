@@ -166,7 +166,7 @@ class Professor(models.Model):
     # informações do professor, como nome completo, matéria lecionada, telefone, matrícula, email, CPF e data de nascimento
     complet_name_prof = models.CharField(max_length=50, verbose_name= "Nome completo do professor", null=True)
     materia_prof = models.CharField(max_length=50, verbose_name= "Matéria lecionada pelo professor")
-    phone_number_prof = models.CharField(max_length=15, validators= [validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
+    phone_number_prof = models.CharField(max_length=11, validators= [validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
     matricula_prof= models.CharField(max_length=50, verbose_name = "Matrícula do professor")
     email_prof = models.EmailField(max_length=100, verbose_name= "Email do professor")
     cpf_prof = models.CharField(max_length=11, unique=True, validators= [validar_cpf], verbose_name= "'CPF do professor", blank= False, null=True)
