@@ -187,9 +187,8 @@ class FaltaForm(forms.ModelForm):
             'data': forms.SelectDateWidget(),
         }
 
-
 class FaltaAdmin(admin.ModelAdmin):
-    list_display = ('data', 'turma', 'aluno', 'status', 'chamada_link')
+    list_display = ('data', 'turma', 'aluno', 'status')
     list_filter = ('data', 'turma', 'status')
     search_fields = ('aluno__complet_name_aluno', 'turma__class_name')
     form = FaltaForm
@@ -200,11 +199,6 @@ class FaltaAdmin(admin.ModelAdmin):
             turma_id = request.GET.get('turma')
             kwargs["queryset"] = Aluno.objects.filter(class_choices=turma_id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-    def chamada_link(self, obj):
-        url = f"/admin/school/turmas/{obj.turma.id}/chamada/"
-        return format_html(f'<a href="{url}">📝 Fazer Chamada</a>')
-    chamada_link.short_description = "Fazer Chamada"
 
 # admin.site.register(Falta, FaltaAdmin)  # Removido para evitar conflito com AttendanceDateAdmin
 from django.utils.safestring import mark_safe
@@ -263,9 +257,9 @@ class AlunoAdmin(admin.ModelAdmin):
     def boletim_link(self, obj):
         from django.utils.html import format_html
         from django.urls import reverse
-        # Se o aluno tem ID, gera o link para a view de boletim com seleção de bimestre
+        # Se o aluno tem ID, gera o link para a view de boletim PDF
         if obj.id:
-            url = reverse('boletim_aluno', args=[obj.id])
+            url = reverse('boletim_aluno_pdf', args=[obj.id])
             return format_html(f'<a href="{url}" target="_blank">📊 Ver Boletim</a>')
         return "-"
     boletim_link.short_description = "Boletim"
@@ -342,8 +336,8 @@ class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
     def upload_view(self, request, object_id):
         from django.shortcuts import redirect, get_object_or_404
         from django.contrib import messages
-        from django.template.response import TemplateResponse
-        obj = get_object_or_404(DocumentoAdvertencia, pk=object_id)
+        obj = get_object_or_404(documentoadvertencia, pk=object_id)
+        # Se for POST e houver arquivo, salva o documentoadvertencia assinado
         if request.method == 'POST' and request.FILES.get('arquivo_assinado'):
             obj.arquivo_assinado = request.FILES['arquivo_assinado']
             if 'documentoadvertencia_assinado' in request.POST:
@@ -351,6 +345,8 @@ class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
             obj.save()
             messages.success(request, 'documentoadvertencia assinado enviado com sucesso!')
             return redirect('admin:school_documentoadvertencia_change', obj.id)
+        from django.template.response import TemplateResponse
+        # Renderiza o template de upload
         context = dict(
             self.admin_site.each_context(request),
             title='Enviar documentoadvertencia Assinado',
@@ -361,13 +357,11 @@ class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
 # Admin para o modelo Nota
 class NotaAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de notas
-    list_display = ('aluno', 'materia', 'bimestre', 'nota', 'data_lancamento', 'boletim_link')
+    list_display = ('aluno', 'materia', 'nota', 'data_lancamento', 'boletim_link')
     # Permite busca pelo nome do aluno e da matéria
     search_fields = ('aluno__complet_name_aluno', 'materia__name_subject')
-    # Permite filtrar por matéria, aluno e bimestre
-    list_filter = ('materia', 'aluno', 'bimestre')
-    # Inclui o campo bimestre no formulário
-    fields = ('aluno', 'materia', 'bimestre', 'nota', 'observacao')
+    # Permite filtrar por matéria e aluno
+    list_filter = ('materia', 'aluno')
 
     # Adiciona um link para visualizar o boletim do aluno
     def boletim_link(self, obj):
@@ -391,13 +385,12 @@ class ProfessorAdmin(admin.ModelAdmin):
 from django.shortcuts import render, redirect
 from django.urls import path
 
-
-
 class TurmasAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de turmas
-    list_display = ('id', 'class_name', 'itinerary_name', 'godfather_prof', 'class_representante', 'relatorio_link', 'chamada_link')
+    list_display = ('id', 'class_name', 'itinerary_name', 'godfather_prof', 'class_representante', 'relatorio_link')
     search_fields = ('class_name', 'itinerary_name')
     list_filter = ('class_name', 'itinerary_name')
+
 
     def get_urls(self):
         urls = super().get_urls()
@@ -410,13 +403,16 @@ class TurmasAdmin(admin.ModelAdmin):
         from .models import Falta, Aluno
         from django.shortcuts import get_object_or_404
         from django.contrib import messages
+        
         turma = get_object_or_404(Turmas, id=turma_id)
         alunos = Aluno.objects.filter(class_choices=turma).order_by('complet_name_aluno')
+        
         if request.method == 'POST':
             data = request.POST.get('data')
             if not data:
                 messages.error(request, 'Por favor, selecione uma data válida.')
                 return redirect(request.path_info)
+                
             try:
                 data_obj = datetime.strptime(data, '%Y-%m-%d').date()
             except ValueError:
@@ -452,6 +448,8 @@ class TurmasAdmin(admin.ModelAdmin):
         url = f"/admin/school/turmas/{obj.id}/chamada/"
         return format_html(f'<a href="{url}">📝 Fazer Chamada</a>')
     chamada_link.short_description = "Chamada"
+
+    list_display = ('id', 'class_name', 'itinerary_name', 'godfather_prof', 'class_representante', 'relatorio_link', 'chamada_link')
 
     # Adiciona um link para visualizar o relatório da turma
     def relatorio_link(self, obj):
@@ -581,28 +579,49 @@ class NotaInline(admin.TabularInline):
         return ('materia', 'nota', 'observacao', 'bimestre')
 
 # Admin para o proxy AlunoNotas (visualização de notas por aluno)
-
-from .forms_batch import BimestreBatchForm
-from django.shortcuts import render, redirect
-from django.contrib import messages
-
 class AlunoNotasAdmin(admin.ModelAdmin):
+    # Campos exibidos na lista
     list_display = ('complet_name_aluno', 'responsavel', 'get_turma')
     search_fields = ('complet_name_aluno',)
     inlines = [NotaInline]
     readonly_fields = ('instrucoes_notas',)
     fields = ('complet_name_aluno', 'responsavel', 'class_choices', 'instrucoes_notas')
 
+    # Adiciona instruções customizadas na tela de notas
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        extra_context['custom_help'] = mark_safe(
+            '<div style="margin: 10px 0; padding: 10px; background: #e6f7ff; border: 1px solid #91d5ff; color: #005580; font-weight: bold;">'
+            'Clique no nome do aluno para adicionar ou visualizar as notas.'
+            '</div>'
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+    # Campo somente leitura com instruções
+    def instrucoes_notas(self, obj):
+        return (
+            '<span style="color: #31708f; font-weight: bold;">'
+            'Para adicionar notas, utilize o formulário abaixo e clique em "Adicionar Nota".'
+            '</span>'
+        )
+    instrucoes_notas.short_description = "Como adicionar notas"
+    instrucoes_notas.allow_tags = True
+
+    # Exibe a turma do aluno
     def get_turma(self, obj):
         return obj.class_choices
     get_turma.short_description = 'Turma'
 
+    # Impede adicionar novos alunos via proxy
     def has_add_permission(self, request):
         return False
 
+    # Impede deletar alunos via proxy
     def has_delete_permission(self, request, obj=None):
         return False
 
+    # Usa todos os alunos para o proxy
     def get_queryset(self, request):
         return Aluno.objects.all()
 

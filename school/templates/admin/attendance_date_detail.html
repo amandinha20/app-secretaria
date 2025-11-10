@@ -1,19 +1,2 @@
-{% extends 'admin/base_site.html' %}
-{% load i18n %}
-
-{% block content %}
-    <h1>{{ title }}</h1>
-    <h2>Turmas com chamada em {{ formatted_date }}</h2>
-    <ul>
-        {% for turma in turmas %}
-            <li>
-                <strong>{{ turma.turma }}</strong> - 
-                Presentes: {{ turma.presentes }} / Faltas: {{ turma.faltas }} / Total: {{ turma.total_alunos }}
-                <a href="{{ turma.url }}">Ver chamada desta turma</a>
-            </li>
-        {% empty %}
-            <li>Nenhuma turma com chamada neste dia.</li>
-        {% endfor %}
-    </ul>
-    <a href="../by-date/">&larr; Voltar para datas</a>
-{% endblock %}
+=======
+    <h1>Chamada - {{ turma }} - {{ formatted_date }}</h1>

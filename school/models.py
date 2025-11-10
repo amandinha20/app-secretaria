@@ -93,6 +93,8 @@ class Falta(models.Model):
         unique_together = ('data', 'turma', 'aluno')
         verbose_name = "Falta"
         verbose_name_plural = "Faltas"
+        verbose_name = "Falta"
+        verbose_name_plural = "Faltas"
 
     def __str__(self):
         return f"{self.data} - {self.turma} - {self.aluno}: {self.get_status_display()}"
@@ -189,7 +191,7 @@ class Professor(models.Model):
     # informações do professor, como nome completo, matéria lecionada, telefone, matrícula, email, CPF e data de nascimento
     complet_name_prof = models.CharField(max_length=50, verbose_name= "Nome completo do professor", null=True)
     materia_prof = models.CharField(max_length=50, verbose_name= "Matéria lecionada pelo professor")
-    phone_number_prof = models.CharField(max_length=15, validators= [validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
+    phone_number_prof = models.CharField(max_length=11, validators= [validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
     matricula_prof= models.CharField(max_length=50, verbose_name = "Matrícula do professor")
     email_prof = models.EmailField(max_length=100, verbose_name= "Email do professor")
     cpf_prof = models.CharField(max_length=11, unique=True, validators= [validar_cpf], verbose_name= "'CPF do professor", blank= False, null=True)
@@ -225,6 +227,7 @@ class Contrato(models.Model):
         verbose_name = "Contrato"
         verbose_name_plural = "Contrato"
     
+    
 class Nota(models.Model):
     # Relação com o aluno
     aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name='notas')
@@ -250,6 +253,7 @@ class Nota(models.Model):
     def __str__(self):
         # Retorna uma string com nome do aluno, matéria e nota
         return f"{self.aluno.complet_name_aluno} - {self.materia.name_subject}: {self.nota}"
+    
     
     class Meta:
         verbose_name = "Nota"
@@ -1142,4 +1146,160 @@ class Suspensao(models.Model):
     class Meta:
         verbose_name = 'Suspensão'
         verbose_name_plural = 'Suspensões'
+
+
+
+
+class CalendarioAcademico(models.Model):
+    TIPO_EVENTO_CHOICES = [
+        ('prova', 'Prova'),
+        ('feriado', 'Feriado'),
+        ('evento', 'Evento'),
+        ('entrega_trabalho', 'Entrega de Trabalho'),
+        ('outros', 'Outros'),
+    ]
+    titulo = models.CharField(max_length=200, verbose_name="Título do Evento")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(blank=True, null=True, verbose_name="Data de Término")
+    tipo_evento = models.CharField(max_length=50, choices=TIPO_EVENTO_CHOICES, verbose_name="Tipo de Evento")
+    turma = models.ForeignKey('Turmas', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Turma (opcional)")
+
+    def __str__(self):
+        return self.titulo
+
+    class Meta:
+        verbose_name = "Evento do Calendário Acadêmico"
+        verbose_name_plural = "Eventos do Calendário Acadêmico"
+
+
+class AgendaProfessor(models.Model):
+    TIPO_ATIVIDADE_CHOICES = [
+        ('aula', 'Aula'),
+        ('reuniao', 'Reunião'),
+        ('correcao_provas', 'Correção de Provas'),
+        ('outros', 'Outros'),
+    ]
+    professor = models.ForeignKey(Professor, on_delete=models.CASCADE, verbose_name="Professor")
+    titulo = models.CharField(max_length=200, verbose_name="Título da Atividade")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    data = models.DateField(verbose_name="Data da Atividade")
+    hora_inicio = models.TimeField(verbose_name="Hora de Início")
+    hora_fim = models.TimeField(blank=True, null=True, verbose_name="Hora de Término")
+    tipo_atividade = models.CharField(max_length=50, choices=TIPO_ATIVIDADE_CHOICES, verbose_name="Tipo de Atividade")
+
+    def __str__(self):
+        return f"{self.titulo} - {self.professor.complet_name_prof}"
+
+    class Meta:
+        verbose_name = "Agenda do Professor"
+        verbose_name_plural = "Agendas dos Professores"
+
+
+
+
+class Notificacao(models.Model):
+    TIPO_NOTIFICACAO_CHOICES = [
+        ('evento_proximo', 'Evento Próximo'),
+        ('atividade_proxima', 'Atividade Próxima'),
+        ('lembrete', 'Lembrete'),
+    ]
+    
+    titulo = models.CharField(max_length=200, verbose_name="Título da Notificação")
+    mensagem = models.TextField(verbose_name="Mensagem")
+    tipo = models.CharField(max_length=50, choices=TIPO_NOTIFICACAO_CHOICES, verbose_name="Tipo de Notificação")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_envio = models.DateTimeField(blank=True, null=True, verbose_name="Data de Envio")
+    enviada = models.BooleanField(default=False, verbose_name="Notificação Enviada")
+    
+    # Relacionamentos opcionais para identificar o que gerou a notificação
+    evento_calendario = models.ForeignKey(CalendarioAcademico, on_delete=models.CASCADE, blank=True, null=True)
+    atividade_professor = models.ForeignKey(AgendaProfessor, on_delete=models.CASCADE, blank=True, null=True)
+    professor = models.ForeignKey(Professor, on_delete=models.CASCADE, blank=True, null=True)
+
+    def __str__(self):
+        return self.titulo
+
+    class Meta:
+        verbose_name = "Notificação"
+        verbose_name_plural = "Notificações"
+        ordering = ['-data_criacao']
+
+
+
+
+class CalendarioAcademico(models.Model):
+    TIPO_EVENTO_CHOICES = [
+        ('prova', 'Prova'),
+        ('feriado', 'Feriado'),
+        ('evento', 'Evento'),
+        ('entrega_trabalho', 'Entrega de Trabalho'),
+        ('outros', 'Outros'),
+    ]
+    titulo = models.CharField(max_length=200, verbose_name="Título do Evento")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(blank=True, null=True, verbose_name="Data de Término")
+    tipo_evento = models.CharField(max_length=50, choices=TIPO_EVENTO_CHOICES, verbose_name="Tipo de Evento")
+    turma = models.ForeignKey('Turmas', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Turma (opcional)")
+
+    def __str__(self):
+        return self.titulo
+
+    class Meta:
+        verbose_name = "Evento do Calendário Acadêmico"
+        verbose_name_plural = "Eventos do Calendário Acadêmico"
+
+
+class AgendaProfessor(models.Model):
+    TIPO_ATIVIDADE_CHOICES = [
+        ('aula', 'Aula'),
+        ('reuniao', 'Reunião'),
+        ('correcao_provas', 'Correção de Provas'),
+        ('outros', 'Outros'),
+    ]
+    professor = models.ForeignKey(Professor, on_delete=models.CASCADE, verbose_name="Professor")
+    titulo = models.CharField(max_length=200, verbose_name="Título da Atividade")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    data = models.DateField(verbose_name="Data da Atividade")
+    hora_inicio = models.TimeField(verbose_name="Hora de Início")
+    hora_fim = models.TimeField(blank=True, null=True, verbose_name="Hora de Término")
+    tipo_atividade = models.CharField(max_length=50, choices=TIPO_ATIVIDADE_CHOICES, verbose_name="Tipo de Atividade")
+
+    def __str__(self):
+        return f"{self.titulo} - {self.professor.complet_name_prof}"
+
+    class Meta:
+        verbose_name = "Agenda do Professor"
+        verbose_name_plural = "Agendas dos Professores"
+
+
+
+
+class Notificacao(models.Model):
+    TIPO_NOTIFICACAO_CHOICES = [
+        ('evento_proximo', 'Evento Próximo'),
+        ('atividade_proxima', 'Atividade Próxima'),
+        ('lembrete', 'Lembrete'),
+    ]
+    
+    titulo = models.CharField(max_length=200, verbose_name="Título da Notificação")
+    mensagem = models.TextField(verbose_name="Mensagem")
+    tipo = models.CharField(max_length=50, choices=TIPO_NOTIFICACAO_CHOICES, verbose_name="Tipo de Notificação")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_envio = models.DateTimeField(blank=True, null=True, verbose_name="Data de Envio")
+    enviada = models.BooleanField(default=False, verbose_name="Notificação Enviada")
+    
+    # Relacionamentos opcionais para identificar o que gerou a notificação
+    evento_calendario = models.ForeignKey(CalendarioAcademico, on_delete=models.CASCADE, blank=True, null=True)
+    atividade_professor = models.ForeignKey(AgendaProfessor, on_delete=models.CASCADE, blank=True, null=True)
+    professor = models.ForeignKey(Professor, on_delete=models.CASCADE, blank=True, null=True)
+
+    def __str__(self):
+        return self.titulo
+
+    class Meta:
+        verbose_name = "Notificação"
+        verbose_name_plural = "Notificações"
+        ordering = ['-data_criacao']
 
