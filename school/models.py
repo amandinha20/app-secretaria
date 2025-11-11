@@ -230,7 +230,7 @@ class Nota(models.Model):
         (3, '3º Bimestre'),
         (4, '4º Bimestre'),
     ]
-    bimestre = models.PositiveSmallIntegerField(choices=BIMESTRE_CHOICES, verbose_name='Bimestre', default=1)
+    bimestre = models.PositiveSmallIntegerField(choices=BIMESTRE_CHOICES, verbose_name='Bimestre', null=True)
 
     # Valor da nota
     nota = models.DecimalField(max_digits=5, decimal_places=2)
