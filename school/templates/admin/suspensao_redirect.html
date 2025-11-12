@@ -1,0 +1,8 @@
+{% extends 'admin/base_site.html' %}
+{% block content %}
+<script>
+    // Redireciona automaticamente para a rota de seleção de turma para suspensões
+    window.location.href = '{% url "suspensao_select_turma" %}';
+</script>
+<p>Redirecionando para seleção de turma para suspensão... <a href="{% url 'suspensao_select_turma' %}">Clique aqui se não for redirecionado</a>.</p>
+{% endblock %}
