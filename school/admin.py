@@ -1,4 +1,3 @@
-
 from django.contrib import admin
 from .models import Turmas, Aluno, Materia, Nota, AlunoNotas, Recurso, Emprestimo
 from django.http import HttpResponseRedirect
@@ -192,6 +191,43 @@ class FaltaAdmin(admin.ModelAdmin):
     list_filter = ('data', 'turma', 'status')
     search_fields = ('aluno__complet_name_aluno', 'turma__class_name')
     form = FaltaForm
+    actions = ['gerar_relatorio_faltas', 'ver_datas_chamadas']
+
+    def gerar_relatorio_faltas(self, request, queryset):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="relatorio_faltas_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Data', 'Turma', 'Aluno', 'Professor', 'Status', 'Observação'])
+        
+        for falta in queryset:
+            writer.writerow([
+                falta.data,
+                falta.turma,
+                falta.aluno.complet_name_aluno,
+                falta.professor.username if falta.professor else '',
+                falta.get_status_display(),
+                falta.observacao or ''
+            ])
+        
+        return response
+
+    gerar_relatorio_faltas.short_description = "Gerar relatório de faltas em CSV"
+
+    def ver_datas_chamadas(self, request, queryset):
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect('/faltas/')
+    ver_datas_chamadas.short_description = 'Visualizar datas de chamadas salvas'
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        data = request.GET.get('data')
+        turma = request.GET.get('turma')
+        if data:
+            qs = qs.filter(data=data)
+        if turma:
+            qs = qs.filter(turma_id=turma)
+        return qs
 
     # Exibe só alunos da turma selecionada
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -209,6 +245,11 @@ from django import forms
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import F
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+import weasyprint
+import csv
 
 # Permite editar alunos diretamente na tela do admin do responsável
 class AlunoInline(admin.TabularInline):
@@ -228,12 +269,43 @@ class ResponsaveisAdmin(admin.ModelAdmin):
     # Exibe os alunos relacionados diretamente na tela do responsável
     inlines = [AlunoInline]
 
+# Inline para DocumentoAdvertencia dentro de Advertencia
+class DocumentoAdvertenciaInline(admin.StackedInline):
+    model = DocumentoAdvertencia
+    extra = 0
+    fields = ('documentoadvertencia_assinado', 'arquivo_assinado', 'documentoadvertencia_pdf_link', 'upload_documentoadvertencia_assinado')
+    readonly_fields = ('documentoadvertencia_pdf_link',)
+    can_delete = False
+    show_change_link = True
+
+    def has_add_permission(self, request, obj):
+        # Só permite adicionar documento se a advertência já foi salva
+        return obj is not None
+
+    def documentoadvertencia_pdf_link(self, obj):
+        if obj and obj.id:
+            from django.urls import reverse
+            from django.utils.html import format_html
+            url = reverse('gerar_documentoadvertencia_pdf', args=[obj.id])
+            return format_html(f'<a href="{url}" target="_blank">📄 Gerar PDF da Advertência</a>')
+        return "-"
+    documentoadvertencia_pdf_link.short_description = "PDF da Advertência"
+
+    def upload_documentoadvertencia_assinado(self, obj):
+        if obj and obj.id:
+            from django.urls import reverse
+            from django.utils.html import format_html
+            url = reverse('admin:school_documentoadvertencia_upload', args=[obj.id])
+            return format_html(f'<a href="{url}">📤 Enviar Documento Assinado</a>')
+        return "-"
+    upload_documentoadvertencia_assinado.short_description = "Upload Documento Assinado"
+
 # Admin para o modelo Aluno
 class AlunoAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de alunos
     list_display = (
         'id', 'complet_name_aluno', 'phone_number_aluno', 'responsavel',
-        'email_aluno', 'cpf_aluno', 'birthday_aluno', 'contrato_pdf_link', 'boletim_link', 'grafico_link'
+        'email_aluno', 'cpf_aluno', 'birthday_aluno', 'contrato_pdf_link', 'boletim_link', 'grafico_link', 'faltas_pdf_link'
     )
     # Define quais campos serão links clicáveis na lista
     list_display_links = ('complet_name_aluno', 'phone_number_aluno', 'email_aluno')
@@ -274,14 +346,64 @@ class AlunoAdmin(admin.ModelAdmin):
         return "-"
     grafico_link.short_description = "Gráfico"
 
+    # Adiciona um link para visualizar o relatório de faltas do aluno em PDF
+    def faltas_pdf_link(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        if obj.id:
+            url = reverse('faltas_aluno_pdf', args=[obj.id])
+            return format_html(f'<a href="{url}" target="_blank">📄 Faltas PDF</a>')
+        return "-"
+    faltas_pdf_link.short_description = "Faltas em PDF"
+
 class AdvertenciaAdmin(admin.ModelAdmin):
     list_display = ('aluno','data', 'motivo')
     search_fields = ('aluno__complet_name_aluno', 'motivo')
-    litst_filter = ('data')
+    list_filter = ('data',)
+    inlines = [DocumentoAdvertenciaInline]
+    actions = ['gerar_e_enviar_documento']
 
     def __str__(self):
         return self.motivo[:200]  # Retorna os primeiros 200 caracteres do motivo
-    
+
+    def gerar_e_enviar_documento(self, request, queryset):
+        for advertencia in queryset:
+            # Gera o PDF
+            html_string = render_to_string('admin/app/documento_advertencia.html', {'advertencia': advertencia})
+            pdf = weasyprint.HTML(string=html_string).write_pdf()
+
+            # Obtém o e-mail do responsável
+            responsavel = advertencia.aluno.responsavel
+            if not responsavel or not responsavel.email:
+                self.message_user(request, f"Erro: Não há e-mail para o responsável de {advertencia.aluno.complet_name_aluno}.", level='ERROR')
+                continue
+
+            # Prepara o e-mail
+            subject = f"Documento de Advertência - {advertencia.aluno.complet_name_aluno}"
+            body = f"Prezado(a) {responsavel.complet_name},\n\nSegue em anexo o documento de advertência para assinatura. Por favor, assine digitalmente (usando uma ferramenta como Adobe Acrobat ou similar) e envie de volta através do sistema ou pelo e-mail {responsavel.email}. Data de emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\nAtenciosamente,\nEquipe Escolar"
+            from_email = "seuemail@exemplo.com"  # Configure no settings.py
+            to_email = [responsavel.email]
+
+            # Envia o e-mail com o PDF
+            try:
+                send_mail(subject, body, from_email, to_email, fail_silently=False, attachments=[('advertencia.pdf', pdf, 'application/pdf')])
+            except Exception as e:
+                self.message_user(request, f"Erro ao enviar e-mail para {responsavel.email}: {str(e)}", level='ERROR')
+                continue
+
+            # Cria ou atualiza o DocumentoAdvertencia
+            documento, created = DocumentoAdvertencia.objects.get_or_create(advertencia=advertencia)
+            documento.documentoadvertencia_assinado = False
+            documento.save()
+
+        self.message_user(request, "Documentos gerados e enviados com sucesso.")
+    gerar_e_enviar_documento.short_description = "Gerar e Enviar Documento de Advertência"
+
+    def get_inline_instances(self, request, obj=None):
+        # Só mostra o inline se a advertência já foi salva
+        if obj:
+            return super().get_inline_instances(request, obj)
+        return []
 
 class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de contratos
@@ -336,7 +458,7 @@ class DocumentoAdvertenciaAdmin(admin.ModelAdmin):
     def upload_view(self, request, object_id):
         from django.shortcuts import redirect, get_object_or_404
         from django.contrib import messages
-        obj = get_object_or_404(documentoadvertencia, pk=object_id)
+        obj = get_object_or_404(DocumentoAdvertencia, pk=object_id)
         # Se for POST e houver arquivo, salva o documentoadvertencia assinado
         if request.method == 'POST' and request.FILES.get('arquivo_assinado'):
             obj.arquivo_assinado = request.FILES['arquivo_assinado']
@@ -387,7 +509,7 @@ from django.urls import path
 
 class TurmasAdmin(admin.ModelAdmin):
     # Campos exibidos na lista de turmas
-    list_display = ('id', 'class_name', 'itinerary_name', 'godfather_prof', 'class_representante', 'relatorio_link')
+    list_display = ('id', 'class_name', 'itinerary_name', 'godfather_prof', 'class_representante', 'relatorio_link', 'chamada_link', 'relatorio_faltas_link')
     search_fields = ('class_name', 'itinerary_name')
     list_filter = ('class_name', 'itinerary_name')
 
@@ -442,14 +564,13 @@ class TurmasAdmin(admin.ModelAdmin):
             'title': f'Chamada da turma {turma.class_name}',
             'turma': turma,
             'alunos': alunos,
+            'data_atual': timezone.now().date().strftime('%Y-%m-%d'),
         })
 
     def chamada_link(self, obj):
         url = f"/admin/school/turmas/{obj.id}/chamada/"
         return format_html(f'<a href="{url}">📝 Fazer Chamada</a>')
     chamada_link.short_description = "Chamada"
-
-    list_display = ('id', 'class_name', 'itinerary_name', 'godfather_prof', 'class_representante', 'relatorio_link', 'chamada_link')
 
     # Adiciona um link para visualizar o relatório da turma
     def relatorio_link(self, obj):
@@ -460,6 +581,15 @@ class TurmasAdmin(admin.ModelAdmin):
             return format_html(f'<a href="{url}" target="_blank">📊 Relatório</a>')
         return "-"
     relatorio_link.short_description = "Relatório"
+
+    def relatorio_faltas_link(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        if obj.id:
+            url = reverse('relatorio_faltas_pdf', args=[obj.id])
+            return format_html(f'<a href="{url}" target="_blank">📊 Relatório Faltas</a>')
+        return "-"
+    relatorio_faltas_link.short_description = "Relatório Faltas"
 
 # Admin para o modelo Materia
 class MateriaAdmin(admin.ModelAdmin):
@@ -854,11 +984,13 @@ class CustomAttendanceDateAdmin(AttendanceDateAdmin):
     def fazer_chamada(self, request, turma_id):
         turma = Turmas.objects.get(id=turma_id)
         alunos = Aluno.objects.filter(class_choices=turma).order_by('complet_name_aluno')
+        
         if request.method == 'POST':
             data = request.POST.get('data')
             if not data:
                 messages.error(request, 'Por favor, selecione uma data válida.')
                 return redirect(request.path_info)
+            
             try:
                 data_obj = datetime.strptime(data, '%Y-%m-%d').date()
             except ValueError:
@@ -880,7 +1012,7 @@ class CustomAttendanceDateAdmin(AttendanceDateAdmin):
                             data=data_obj,
                             turma=turma,
                             aluno=aluno,
-                            defaults={'status': status}
+                            defaults={'status': status, 'professor': request.user if request.user.is_staff else None}
                         )
                 messages.success(request, 'Chamada registrada com sucesso!')
                 return redirect('admin:attendance_by_date')
@@ -888,6 +1020,7 @@ class CustomAttendanceDateAdmin(AttendanceDateAdmin):
             'title': f'Chamada da turma {turma.class_name}',
             'turma': turma,
             'alunos': alunos,
+            'data_atual': timezone.now().date().strftime('%Y-%m-%d'),
         })
 
     def changelist_view(self, request, extra_context=None):

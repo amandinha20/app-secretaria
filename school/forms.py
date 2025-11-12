@@ -1,5 +1,6 @@
 from django import forms
-from .models import Contrato
+from .models import Contrato, Suspensao
+
 
 # Formulário para marcar o contrato como assinado
 class ContratoAssinadoForm(forms.ModelForm):
@@ -10,9 +11,7 @@ class ContratoAssinadoForm(forms.ModelForm):
         fields = ['contrato_assinado']
 
 
-from .models import Suspensao
-
-
+# Formulário para registrar suspensão
 class SuspensaoForm(forms.ModelForm):
     class Meta:
         model = Suspensao
