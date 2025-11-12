@@ -34,6 +34,9 @@ from .views import (
     excluir_notificacao,
     faltas_aluno_pdf,
     relatorio_faltas_pdf,
+    suspensao_select_turma,
+    suspensao_select_aluno,
+    suspensao_create
 )
 
 # Advertência (de acordo com o padrão mais recente)

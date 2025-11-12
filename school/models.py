@@ -15,10 +15,17 @@ def get_default_data_fim():
 # Create your models here.
 class Responsavel(models.Model):
     complet_name = models.CharField(max_length=50, verbose_name= "Nome completo do responsável")
-    phone_number = models.CharField(max_length=15, validators=[validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
+    phone_number = models.CharField(max_length=11, validators=[validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
     email = models.EmailField(max_length=100, verbose_name= "Email do responsável")
     cpf = models.CharField(max_length=11, unique=True, validators= [validar_cpf], verbose_name= "CPF do responsável")
     birthday = models.DateField()
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # Referência ao modelo de usuário configurado
+        on_delete=models.CASCADE,  # O que acontece se o usuário for deletado (ex: CASCADE deleta o aluno também)
+        related_name='responsavel',# Nome reverso para acessar de User para Aluno (opcional, mas útil)
+        null=True,                 # Permite que o campo seja nulo, se não for obrigatório
+        blank=True                 # Permite que o campo fique em branco no admin/formulários
+    )
 
     def __str__(self):
         return self.complet_name
@@ -41,13 +48,20 @@ class Aluno(models.Model):
     complet_name_aluno = models.CharField(max_length=100, verbose_name= "Nome completo do aluno")
     # Relação com o responsável
     responsavel= models.ForeignKey(Responsavel, on_delete=models.CASCADE, related_name="complet_name_aluno")
-    phone_number_aluno = models.CharField(max_length=15, validators=[validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
+    phone_number_aluno = models.CharField(max_length=11, validators=[validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
     matricula_aluno= models.CharField(max_length=50, verbose_name = "Matrícula do aluno")
     email_aluno = models.EmailField(max_length=100, verbose_name= "Email do aluno")
     cpf_aluno = models.CharField(max_length=11, unique=True, validators= [validar_cpf], verbose_name= "CPF do aluno")
     birthday_aluno = models.DateField()
     # Alterando para ForeignKey para Turmas
     class_choices = models.ForeignKey('Turmas', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Turma do aluno")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # Referência ao modelo de usuário configurado
+        on_delete=models.CASCADE,  # O que acontece se o usuário for deletado (ex: CASCADE deleta o aluno também)
+        related_name='aluno',      # Nome reverso para acessar de User para Aluno (opcional, mas útil)
+        null=True,                 # Permite que o campo seja nulo, se não for obrigatório
+        blank=True                 # Permite que o campo fique em branco no admin/formulários
+    )
 
     def __str__(self):
         # Retorna o nome completo do aluno para exibição
@@ -180,7 +194,7 @@ class Professor(models.Model):
     # informações do professor, como nome completo, matéria lecionada, telefone, matrícula, email, CPF e data de nascimento
     complet_name_prof = models.CharField(max_length=50, verbose_name= "Nome completo do professor", null=True)
     materia_prof = models.CharField(max_length=50, verbose_name= "Matéria lecionada pelo professor")
-    phone_number_prof = models.CharField(max_length=15, validators= [validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
+    phone_number_prof = models.CharField(max_length=11, validators= [validar_telefone], verbose_name= "Telefone (xx) xxxxx-xxxx")
     matricula_prof= models.CharField(max_length=50, verbose_name = "Matrícula do professor")
     email_prof = models.EmailField(max_length=100, verbose_name= "Email do professor")
     cpf_prof = models.CharField(max_length=11, unique=True, validators= [validar_cpf], verbose_name= "'CPF do professor", blank= False, null=True)
@@ -191,6 +205,13 @@ class Professor(models.Model):
     subject_choice= models.ForeignKey(Materia, on_delete=models.CASCADE, related_name="materia", blank=False, null=True)
     # Relação com a turma (objeto Turmas)
     class_choices = models.ForeignKey(Turmas, on_delete=models.CASCADE, related_name="padrinho", blank=False, null=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # Referência ao modelo de usuário configurado
+        on_delete=models.CASCADE,  # O que acontece se o usuário for deletado (ex: CASCADE deleta o aluno também)
+        related_name='professor',  # Nome reverso para acessar de User para Aluno (opcional, mas útil)
+        null=True,                 # Permite que o campo seja nulo, se não for obrigatório
+        blank=True                 # Permite que o campo fique em branco no admin/formulários
+    )
 
     def __str__(self):
         # Retorna o nome completo do professor para exibição

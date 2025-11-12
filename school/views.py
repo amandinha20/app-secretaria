@@ -681,3 +681,32 @@ def excluir_notificacao(request, notificacao_id):
     
     context = {'notificacao': notificacao}
     return render(request, 'confirmar_exclusao_notificacao.html', context)
+
+def suspensao_select_turma(request):
+    turmas = Turmas.objects.all()
+    return render(request, 'suspensao_select_turma.html', {'turmas': turmas})
+
+
+def suspensao_select_aluno(request, turma_id):
+    alunos = Aluno.objects.filter(class_choices_id=turma_id)
+    turma = Turmas.objects.get(id=turma_id)
+    return render(request, 'suspensao_select_aluno.html', {'alunos': alunos, 'turma': turma})
+
+def suspensao_create(request, turma_id, aluno_id=None):
+    # Se aluno_id for fornecido, pré-seleciona; caso contrário, permite escolher no formulário
+    if request.method == 'POST':
+        form = SuspensaoForm(request.POST)
+        if form.is_valid():
+            susp = form.save(commit=False)
+            if not susp.criado_por:
+                susp.criado_por = request.user
+            susp.save()
+            return render(request, 'suspensao_success.html', {'suspensao': susp})
+    else:
+        initial = {}
+        if aluno_id:
+            initial['aluno'] = aluno_id
+        if turma_id:
+            initial['turma'] = turma_id
+        form = SuspensaoForm(initial=initial)
+    return render(request, 'suspensao_form.html', {'form': form})
